@@ -68,3 +68,16 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
             {"name": name, "token": token, "leader_card_id": leader_card_id},
         )
         return
+
+
+def create_room(live_id: int, select_difficulty: int) -> int:
+    room_id:int = 0
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "INSERT INTO `user` (name, token, leader_card_id) VALUES (:name, :token, :leader_card_id)"
+            ),
+            {"name": name, "token": token, "leader_card_id": leader_card_id},
+        )
+        # print(result)
+    return room_id

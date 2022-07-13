@@ -28,13 +28,19 @@ class UserCreateRequest(BaseModel):
 class UserCreateResponse(BaseModel):
     user_token: str
 
+class RoomCreateRequest(BaseModel):
+    live_id: int
+    select_difficulty: int
+
+class RoomCreateResponse(BaseModel):
+    room_id: int
+
 
 @app.post("/user/create", response_model=UserCreateResponse)
 def user_create(req: UserCreateRequest):
     """新規ユーザー作成"""
     token = model.create_user(req.user_name, req.leader_card_id)
     return UserCreateResponse(user_token=token)
-
 
 bearer = HTTPBearer()
 
@@ -65,3 +71,9 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
     # print(req)
     model.update_user(token, req.user_name, req.leader_card_id)
     return {}
+
+@app.post("/room/create", response_model=RoomCreateRequest)
+def user_create(req: RoomCreateRequest):
+    """ルーム作成"""
+    room_id = model.create_room(req.live_id, req.select_difficulty)
+    return RoomCreateResponse(room_id=room_id)
