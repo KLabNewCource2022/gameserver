@@ -17,6 +17,23 @@ async def root():
     return {"message": "Hello World"}
 
 
+# Enum
+class LiveDifficulty(Enum):
+    normal  = 0
+    hard    = 1
+
+
+class JoinRoomResult(Enum):
+    Ok          = 1  # 入場OK
+    RoomFull    = 2  # 満員
+    Disbanded   = 3  # 解散済み
+    OtherError  = 4  # その他エラー
+
+
+class WaitRoomStatus(Enum):
+    Waiting     = 1  # ホストがライブ開始ボタン押すのを待っている
+    LiveStart	= 2  # ライブ画面遷移OK
+    Dissolution	= 3  # 解散された
 # User APIs
 
 
@@ -27,6 +44,15 @@ class UserCreateRequest(BaseModel):
 
 class UserCreateResponse(BaseModel):
     user_token: str
+
+
+class RoomCreateResquest(BaseModel):
+    live_id: int
+    select_difficulty: LiveDifficulty
+
+
+class RoomCreateResponse(BaseModel):
+    room_id: int
 
 
 @app.post("/user/create", response_model=UserCreateResponse)
@@ -65,3 +91,11 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
     # print(req)
     model.update_user(token, req.user_name, req.leader_card_id)
     return {}
+
+
+
+# ルームを新規で建てる。
+@app.post("/room/create", response_model=RoomCreateResponse)
+def RoomCreate(req: RoomCreateResquest ,token: str = Depends(get_auth_token)):
+    room_id = model.create_room(token, live_id=req.live_id, select_difficulty=req.select_difficulty)
+    return RoomCreateResponse(room_id=room_id)
