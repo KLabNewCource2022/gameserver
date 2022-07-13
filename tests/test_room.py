@@ -33,6 +33,11 @@ def test_room_create():
     room_id = response.json()["room_id"]
     print(f"room/create {room_id=}")
 
+def test_room_list():
+    response = client.post("/room/list", json={"live_id": 1001})
+    assert response.status_code == 200
+    print("room/list response:", response.json())
+
 def test_room_1():
     response = client.post(
         "/room/create",

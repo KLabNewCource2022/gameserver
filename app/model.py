@@ -134,4 +134,45 @@ def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> 
                 "SELECT `id` FROM room ORDER BY id DESC LIMIT 1"
             )
         )
-    return result.one().id
+        room = result.one()
+        # 作成したらホストは強制的にJoin
+        conn.execute(
+            text(
+                "INSERT INTO `room_member` (room_id, user_id) VALUES (:room_id, :user_id)"
+            ),
+            dict(room_id=room.id, user_id=user.id)
+        )
+    return room.id
+
+def get_room_info_list(live_id: int) -> list[RoomInfo]:
+    with engine.begin() as conn:
+        rooms_result = conn.execute(
+            text(
+                "SELECT * FROM `room` WHERE `live_id` = :live_id ORDER BY `id`"
+            ),
+            dict(live_id=live_id)
+        )
+        rooms = rooms_result.all()
+        room_member_cnt_result = conn.execute(
+            text(
+                """
+                SELECT room_id, COUNT(id) as member_cnt FROM `room_member`
+                WHERE `room_id` IN (SELECT `id` FROM `room` WHERE `live_id` = :live_id)
+                GROUP BY `room_id`
+                ORDER BY `room_id`
+                """
+            ),
+            dict(live_id=live_id)
+        )
+        room_member_cnt = room_member_cnt_result.all()
+
+        rooms_info = []
+        for room, member_cnt in zip(rooms, room_member_cnt):
+            rooms_info.append(RoomInfo(
+                room_id=room.id,
+                live_id=room.live_id,
+                joined_user_count=member_cnt.member_cnt,
+                max_user_count=4
+            ))
+
+        return rooms_info
