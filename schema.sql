@@ -14,9 +14,10 @@ CREATE TABLE `user` (
 CREATE TABLE `room` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `live_id` bigint NOT NULL,
-  `select_difficulty` tinyint NOT NULL,
   `wait_room_status` tinyint NOT NULL,
   `created_by` bigint NOT NULL,
+  `max_user_count` tinyint DEFAULT 4,
+  `room_status` tinyint DEFAULT 1,
   PRIMARY KEY (`id`)
   -- FOREIGN KEY `room` (`created_by`) references `user` (`id`)
 );
@@ -25,6 +26,7 @@ CREATE TABLE `room_member` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `room_id` bigint NOT NULL,
   `user_id` bigint NOT NULL,
+  `select_difficulty` tinyint NOT NULL,
   PRIMARY KEY (`id`)
   -- FOREIGN KEY `room_member` (`room_id`) references `room` (`id`),
   -- FOREIGN KEY `room_member` (`user_id`) references `user` (`id`)
