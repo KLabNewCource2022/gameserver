@@ -71,3 +71,67 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
             ),
             dict(name=name, leader_card_id=leader_card_id, id=user.id),
         )
+
+# room周り
+
+# enum
+
+class LiveDifficulty(IntEnum):
+    NORMAL = 1
+    HARD = 2
+
+class JoinRoomResult(IntEnum):
+    OK = 1
+    ROOM_FULL = 2
+    DISBANDED = 3
+    OTHER_ERROR = 4
+
+class WaitRoomStatus:
+    WAITING = 1
+    LIVE_START = 2
+    DISSOLUTION = 3
+
+class RoomInfo(BaseModel):
+    room_id: int
+    live_id: int
+    joined_user_count: int
+    max_user_count: int
+
+    class Config:
+        orm_mode = True
+
+class RoomUser(BaseModel):
+    user_id: int
+    name: str
+    leader_card_id: int
+    select_difficulty: LiveDifficulty
+    is_me: bool
+    is_host: bool
+
+    class Config:
+        orm_mode = True
+
+class ResultUser(BaseModel):
+    user_id: int
+    judge_count_list: list[int]
+    score: int
+
+    class Config:
+        orm_mode = True
+
+def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> int:
+    user = get_user_by_token(token)
+    with engine.begin() as conn:
+        # もっと楽に取れそう
+        conn.execute(
+            text(
+                "INSERT INTO `room` (live_id, select_difficulty, wait_room_status, created_by) VALUES (:live_id, :select_difficulty, :wait_room_status, :created_by)"
+            ),
+            dict(live_id=live_id, select_difficulty=int(select_difficulty), wait_room_status=WaitRoomStatus.WAITING, created_by=user.id)
+        )
+        result = conn.execute(
+            text(
+                "SELECT `id` FROM room ORDER BY id DESC LIMIT 1"
+            )
+        )
+    return result.one().id
