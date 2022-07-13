@@ -58,7 +58,10 @@ def get_user_by_token(token: str) -> Optional[SafeUser]:
 
 
 def update_user(token: str, name: str, leader_card_id: int) -> None:
-    # このコードを実装してもらう
     with engine.begin() as conn:
-        # TODO: 実装
-        pass
+        conn.execute(
+            text(
+                "UPDATE `user` SET name=:name, leader_card_id=:leader WHERE token=:token"
+            ),
+            {"token": token, "name": name, "leader": leader_card_id},
+        )
