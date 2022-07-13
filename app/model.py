@@ -10,6 +10,29 @@ from sqlalchemy.exc import NoResultFound
 
 from .db import engine
 
+# Enums
+
+
+class LiveDifficulty(Enum):
+    normal: int = 1
+    hard: int = 2
+
+
+class JoinRoomResult(Enum):
+    OK: int = 1  # 入場OK
+    RoomFull: int = 2  # 満員
+    Disbanded: int = 3  # 解散済み
+    OtherError: int = 4  # その他エラー
+
+
+class WaitRoomStatus(Enum):
+    Waiting: int = 1  # ホストがライブ開始ボタン押すのを待っている
+    LiveStart: int = 2  # ライブ画面遷移OK
+    Dissolution: int = 3  # 解散された
+
+
+# Classes
+
 
 class InvalidToken(Exception):
     """指定されたtokenが不正だったときに投げる"""
@@ -21,6 +44,37 @@ class SafeUser(BaseModel):
     id: int
     name: str
     leader_card_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class RoomInfo(BaseModel):
+    room_id: int  # 部屋識別子
+    live_id: int  # プレイ対象の楽曲識別子
+    joined_user_count: int  # 部屋に入っている人数
+    max_user_count: int  # 部屋の最大人数
+
+    class Config:
+        orm_mode = True
+
+
+class RoomUser(BaseModel):
+    user_id: int  # ユーザー識別子
+    name: str  # ユーザー名
+    leader_card_id: int  # 設定アバター
+    select_difficulty: LiveDifficulty  # 選択難易度
+    is_me: bool  # リクエスト投げたユーザーと同じか
+    is_host: bool  # 部屋を立てた人か
+
+    class Config:
+        orm_mode = True
+
+
+class ResultUser(BaseModel):
+    user_id: int  # ユーザー識別子
+    judge_count_list: list[int]  # 各判定数（良い判定から昇順）
+    score: int  # 獲得スコア
 
     class Config:
         orm_mode = True
