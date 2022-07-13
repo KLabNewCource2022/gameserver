@@ -154,3 +154,32 @@ def find_room(live_id: int):
         except NoResultFound:
             return []
 
+
+def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomResult:
+    """ルームに入場する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "SELECT room_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id WHERE room_id=:room_id) as C on room_id = ID WHERE room_id=:room_id"
+            ),
+            {"room_id": room_id},
+        )
+        try:
+            if result.joined_user_count >= result.max_iser_count:
+                # 参加者数 >= 参加上限 : 満員
+                return JoinRoomResult.RoomFull
+            if result.joined_user_count == 0:
+                # 誰も参加していない : 解散済み
+                return JoinRoomResult.Disbanded
+        except NoResultFound:
+            # クエリの結果が空 : その他エラー
+            return JoinRoomResult.OtherError
+
+        conn.execute(
+            text(
+                "INSERT INTO `room_member` (room_id, select_difficulty, token) VALUES (:room_id, :difficulty, :token)"
+            ),
+            {"room_id": room_id, "difficulty": difficulty.value, "token": token},
+        )
+        # 入場OK
+        return JoinRoomResult.OK
