@@ -17,6 +17,7 @@ CREATE TABLE `room` (
   `wait_room_status` tinyint NOT NULL,
   `created_by` bigint NOT NULL,
   `max_user_count` tinyint DEFAULT 4,
+  `can_join` boolean NOT NULL DEFAULT 1,
   `room_status` tinyint DEFAULT 1,
   PRIMARY KEY (`id`)
   -- FOREIGN KEY `room` (`created_by`) references `user` (`id`)

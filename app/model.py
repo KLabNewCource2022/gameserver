@@ -91,6 +91,9 @@ class WaitRoomStatus:
     LIVE_START = 2
     DISSOLUTION = 3
 
+# db用
+class RoomStatus:
+
 class RoomInfo(BaseModel):
     room_id: int
     live_id: int
