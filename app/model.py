@@ -119,3 +119,38 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
             ),
             {"token": token, "name": name, "leader": leader_card_id},
         )
+
+
+def create_room(live_id: int, difficulty: LiveDifficulty) -> int:
+    """ルームを作成する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "INSERT INTO `room` (live_id, select_difficulty, max_user_count) VALUES (:live_id, :difficulty, 4)"
+            ),
+            {"live_id": live_id, "difficulty": difficulty.value},
+        )
+    return result.lastrowid
+
+
+def find_room(live_id: int):
+    """ルームを検索する"""
+    with engine.begin() as conn:
+        if live_id == 0:
+            query_where = ""
+        else:
+            query_where = " where live_id=:live_id"
+
+        result = conn.execute(
+            text(
+                "SELECT room_id, live_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id) as C on room_id = ID"
+                + query_where
+            ),
+            {"live_id": live_id},
+        )
+
+        try:
+            return result.all()
+        except NoResultFound:
+            return []
+
