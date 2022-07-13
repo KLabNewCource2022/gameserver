@@ -143,7 +143,6 @@ def list_room(token : str, live_id : int) -> List[RoomInfo]:
                 "select * from room"
             )
         )
-    print("fewfwefewfewffewfewfewfew")
 
     roomInfo : List[RoomInfo] = []
 
@@ -161,3 +160,33 @@ def list_room(token : str, live_id : int) -> List[RoomInfo]:
         roomInfo.append(ri)
 
     return roomInfo
+
+
+def join_room(token : str, room_id : int, select_difficulty : int) -> JoinRoomResult:
+
+    with engine.begin() as conn:
+        user = _get_user_by_token(conn, token)
+        result = conn.execute(
+            text(
+                "select count(*) as players from room_member where room_id = :room_id"
+            ),
+            {"room_id" : room_id}
+        )
+
+        try:
+            row = result.one()
+            if row.players >= 4:
+                return JoinRoomResult.RoomFull
+            elif row.players == 0:
+                return JoinRoomResult.Disbanded
+        except NoResultFound:
+            return JoinRoomResult.OtherError
+
+        conn.execute(
+            text(
+                "INSERT INTO room_member (room_id, user_id, is_host, select_difficulty) VALUES (:room_id, :user_id, :is_host, :select_difficulty)"
+            ),
+            {"room_id" : room_id, "user_id" : user.id, "is_host" : 0, "select_difficulty" : select_difficulty},
+        )
+
+    return JoinRoomResult.Ok
