@@ -42,10 +42,9 @@ def create_user(name: str, leader_card_id: int) -> str:
 
 
 def _get_user_by_token(conn, token: str) -> Optional[SafeUser]:
-    # TODO: 実装
     result = conn.execute(
         text("select id,name,leader_card_id from user where token=:token"),
-        {"token":token},
+        {"token": token},
     )
     try:
         return SafeUser.from_orm(result.one())
@@ -61,5 +60,8 @@ def get_user_by_token(token: str) -> Optional[SafeUser]:
 def update_user(token: str, name: str, leader_card_id: int) -> None:
     # このコードを実装してもらう
     with engine.begin() as conn:
-        # TODO: 実装
-        pass
+        user = get_user_by_token(token)
+        conn.execute(
+            text("update user set name=:name, leader_card_id=:leader where id=:id"),
+            {"name": name, "leader": leader_card_id, "id": user.id},
+        )
