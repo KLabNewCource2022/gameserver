@@ -86,13 +86,13 @@ class JoinRoomResult(IntEnum):
     DISBANDED = 3
     OTHER_ERROR = 4
 
-class WaitRoomStatus:
+class WaitRoomStatus(IntEnum):
+    """test"""
     WAITING = 1
     LIVE_START = 2
     DISSOLUTION = 3
 
 # db用
-class RoomStatus:
 
 class RoomInfo(BaseModel):
     room_id: int
@@ -130,6 +130,15 @@ def _create_room_member(conn, room_id: int, user_id: int, select_difficulty: Liv
             dict(room_id=room_id, user_id=user_id, select_difficulty=int(select_difficulty))
         )
 
+def _get_room(conn, room_id: int):
+    room_result = conn.execute(
+        text("SELECT * FROM `room` WHERE id = :room_id"),
+        dict(room_id=room_id)
+    )
+
+    return room_result.one()
+
+
 def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> int:
     user = get_user_by_token(token)
     with engine.begin() as conn:
@@ -138,7 +147,7 @@ def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> 
             text(
                 "INSERT INTO `room` (live_id, wait_room_status, created_by) VALUES (:live_id, :wait_room_status, :created_by)"
             ),
-            dict(live_id=live_id,  wait_room_status=WaitRoomStatus.WAITING, created_by=user.id)
+            dict(live_id=live_id,  wait_room_status=int(WaitRoomStatus.WAITING), created_by=user.id)
         )
         result = conn.execute(
             text("SELECT `id` FROM room ORDER BY id DESC LIMIT 1")
@@ -182,11 +191,7 @@ def get_room_info_list(live_id: int) -> list[RoomInfo]:
 
 def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> JoinRoomResult:
     with engine.begin() as conn:
-        room_result = conn.execute(
-            text("SELECT `max_user_count`, `can_join` FROM `room` WHERE id = :room_id"),
-            dict(room_id=room_id)
-        )
-        room = room_result.one()
+        room = _get_room(conn, room_id)
 
         if room.can_join:
             user = _get_user_by_token(conn, token)
@@ -211,3 +216,35 @@ def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> Jo
                 )
 
         return room.room_status
+
+def room_polling(room_id: int, token: str) -> tuple[WaitRoomStatus, list[RoomUser]]:
+    with engine.begin() as conn:
+        room = _get_room(conn, room_id)
+
+        room_members_result = conn.execute(
+            text("SELECT user_id, select_difficulty FROM room_member WHERE room_id = :room_id"),
+            dict(room_id=room_id)
+        )
+        room_members = room_members_result.all()
+
+        request_user = _get_user_by_token(conn, token)
+        room_user_list = []
+        for room_member in room_members:
+            user_result = conn.execute(
+                text("SELECT name, leader_card_id FROM user WHERE id = :user_id"),
+                dict(user_id=room_member.user_id)
+            )
+            user = user_result.one()
+            room_user_list.append(RoomUser(
+                user_id=room_member.user_id,
+                name=user.name,
+                leader_card_id=user.leader_card_id,
+                select_difficulty=room_member.select_difficulty,
+                is_me=(request_user.id == room_member.user_id),
+                is_host=(room.created_by == room_member.user_id),
+            ))
+        
+        return room.room_status, room_user_list
+
+
+        
