@@ -260,3 +260,31 @@ def start_room(room_id: int, token: str):
             text("UPDATE room SET `room_status` = :room_status WHERE `id` = :room_id"),
             dict(room_status=int(WaitRoomStatus.LIVE_START), room_id=room_id),
         )
+
+def end_room(room_id: int, judge_count_list: list[int], score: int, token: str):
+    with engine.begin() as conn:
+        user = _get_user_by_token(conn, token)
+        if user is None:
+            return
+
+        perfect = judge_count_list[0]
+        great = judge_count_list[1]
+        good = judge_count_list[2]
+        bad = judge_count_list[3]
+        miss = judge_count_list[4]
+        score_id = conn.execute(
+            text(
+                """
+                INSERT INTO `score` (`score`, `perfect`, `great`, `good`, `bad`, `miss`)
+                VALUES (:score, :perfect, :great, :good, :bad, :miss)
+                """
+            ),
+            dict(score=score, perfect=perfect, great=great, good=good, bad=bad, miss=miss)
+        ).lastrowid
+
+        print(score_id)
+        
+        conn.execute(
+            text("UPDATE `room` SET `room_status` = :room_status, `score_id` = :score_id WHERE `id` = :room_id"),
+            dict(room_status=int(WaitRoomStatus.DISSOLUTION), score_id=score_id, room_id=room_id),
+        )

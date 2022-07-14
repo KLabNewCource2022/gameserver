@@ -2,7 +2,7 @@ from enum import Enum
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import model
 from .model import SafeUser, LiveDifficulty, RoomInfo, JoinRoomResult, RoomUser, WaitRoomStatus
@@ -123,3 +123,12 @@ class RoomStartRequest(BaseModel):
 @app.post("/room/start")
 def room_start(req: RoomStartRequest, token: str = Depends(get_auth_token)):
     model.start_room(req.room_id, token)
+
+class RoomEndRequest(BaseModel):
+    room_id: int
+    judge_count_list: list[int] = Field(..., min_items=5, max_items=5)
+    score: int
+
+@app.post("/room/end")
+def room_end(req: RoomEndRequest, token: str = Depends(get_auth_token)):
+    model.end_room(req.room_id, req.judge_count_list, req.score, token)
