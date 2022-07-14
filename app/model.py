@@ -271,4 +271,9 @@ def _set_user_host(conn, room_id: int, token: str) -> None:
 def leave_room(room_id: int, token: str) -> None:
     """ルームから退場する"""
     with engine.begin() as conn:
+        is_host = _is_user_host(conn, room_id, token)
         _delete_user_from_room_member(conn, room_id, token)
+        if is_host:
+            next_host_token: Optional[str] = _find_first_room_client_user(conn, room_id)
+            if next_host_token is not None:
+                _set_user_host(conn, room_id, next_host_token)
