@@ -179,6 +179,7 @@ class RoomLeaveRequest(BaseModel):
 
 
 @app.post("/room/leave", response_model=Empty)
-def room_leave(req: RoomLeaveRequest):
+def room_leave(req: RoomLeaveRequest, token: str = Depends(get_auth_token)):
     """ルーム退出リクエスト。オーナーも /room/join で参加した参加者も実行できる。"""
+    model.leave_room(req.room_id, token)
     return {}
