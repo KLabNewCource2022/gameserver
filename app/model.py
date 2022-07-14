@@ -165,10 +165,11 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
             {"room_id": room_id},
         )
         try:
-            if result.joined_user_count >= result.max_iser_count:
+            row = result.one()
+            if row.joined_user_count >= row.max_user_count:
                 # 参加者数 >= 参加上限 : 満員
                 return JoinRoomResult.RoomFull
-            if result.joined_user_count == 0:
+            if row.joined_user_count == 0:
                 # 誰も参加していない : 解散済み
                 return JoinRoomResult.Disbanded
         except NoResultFound:
