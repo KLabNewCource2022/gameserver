@@ -143,7 +143,7 @@ def find_room(live_id: int):
 
         result = conn.execute(
             text(
-                "SELECT room_id, live_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id) as C on room_id = ID"
+                "SELECT room_id, live_id, IFNULL(CC, 0) as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id) as C on room_id = ID"
                 + query_where
             ),
             {"live_id": live_id},

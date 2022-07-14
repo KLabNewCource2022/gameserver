@@ -105,7 +105,7 @@ def room_list(req: RoomListRequest):
     """入場可能なルーム一覧を取得"""
     room_list = model.find_room(req.live_id)
     room_info_list = [
-        RoomInfo.from_orm(row) for row in room_list if row.joined_user_count and row.joined_user_count > 0
+        RoomInfo.from_orm(row) for row in room_list if row.joined_user_count > 0
     ]
     return RoomListResponse(room_info_list=room_info_list)
 
