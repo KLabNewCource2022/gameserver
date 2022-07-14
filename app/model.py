@@ -202,3 +202,14 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
         )
         # 入場OK
         return JoinRoomResult.OK
+
+
+def leave_room(room_id: int, token: str) -> None:
+    """ルームから退場する"""
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"
+            ),
+            {"room_id": room_id, "token": token},
+        )
