@@ -228,6 +228,21 @@ def room_status(room_id: int) -> WaitRoomStatus:
             return WaitRoomStatus.Waiting
 
 
+def room_member(room_id: int, token: str) -> list[RoomUser]:
+    """ルームにいるプレイヤー一覧を取得する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "SELECT *, id as user_id, (token = :token) as is_me, (is_host = 1) as is_host FROM `user` INNER JOIN (SELECT room_id, token as t, select_difficulty, is_host FROM `room_member` WHERE room_id = :room_id) as M on token = t"
+            ),
+            {"token": token, "room_id": room_id},
+        )
+        try:
+            return [RoomUser.from_orm(row) for row in result.all()]
+        except NoResultFound:
+            return []
+
+
 def _is_user_host(conn, room_id: int, token: str) -> bool:
     result = conn.execute(
         text(
