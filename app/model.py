@@ -228,6 +228,17 @@ def room_status(room_id: int) -> WaitRoomStatus:
             return WaitRoomStatus.Waiting
 
 
+def _is_user_host(conn, room_id: int, token: str) -> bool:
+    result = conn.execute(
+        text(
+            "SELECT * FROM `room_member` WHERE room_id = :room_id AND token = :token AND is_host = 1"
+        ),
+        {"room_id": room_id, "token": token},
+    )
+    row = result.one_or_none()
+    return row is not None
+
+
 def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
     conn.execute(
         text("DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"),
