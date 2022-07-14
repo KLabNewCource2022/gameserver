@@ -1,4 +1,5 @@
 from enum import Enum
+from re import I
 from pydantic import BaseModel
 
 
@@ -8,7 +9,7 @@ class LiveDiffculty(Enum):
     hard = 2
 
 
-class JoinRoomResult(BaseModel):
+class JoinRoomResult(Enum):
     '''加入するルームの状態'''
     Ok = 1
     RoomFull = 2
@@ -16,7 +17,7 @@ class JoinRoomResult(BaseModel):
     OtherError = 4
 
 
-class WaitRoomStatus(BaseModel):
+class WaitRoomStatus(int, Enum):
     '''ルームの状態'''
     Waiting = 1
     LiveStart = 2
@@ -28,15 +29,17 @@ class RoomInfo(BaseModel):
     live_id: int
     joined_user_count: int
     max_user_count: int
+    status: WaitRoomStatus
+    owner_id: int
 
 
 class RoomUser(BaseModel):
     user_id: int
     name: str
     leader_card_id: int
-    select_diffculty: LiveDiffculty
+    select_difficulty: LiveDiffculty
     is_me: bool
-    is_hose: bool
+    is_host: bool
 
 
 class ResultUser(BaseModel):
@@ -44,3 +47,62 @@ class ResultUser(BaseModel):
     judge_count_list: list[int]
     score: int
 
+
+class RoomCreateRequest(BaseModel):
+    live_id: int
+    select_difficulty: LiveDiffculty
+
+
+class RoomCreateResponse(BaseModel):
+    room_id: int
+
+
+class RoomListRequest(BaseModel):
+    live_id: int
+
+
+class RoomListResponse(BaseModel):
+    room_info_list: list[RoomInfo]
+
+
+class RoomJoinRequest(BaseModel):
+    room_id: int
+    select_difficulty: LiveDiffculty
+
+    class Config:
+        orm_mode = True
+
+
+class RoomJoinResponse(BaseModel):
+    join_room_result: JoinRoomResult
+
+    class Config:
+        orm_mode = True
+
+
+class RoomWaitRequest(BaseModel):
+    room_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class RoomWaitResponse(BaseModel):
+    status: WaitRoomStatus
+    room_user_list: list[RoomUser]
+
+    class Config:
+        orm_mode = True
+
+
+class RoomStartRequest(BaseModel):
+    room_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class RoomEndRequest(BaseModel):
+    room_id: int
+    judge_count_list: list[int]
+    score: int

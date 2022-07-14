@@ -1,14 +1,94 @@
 from sqlalchemy import text
 from app.db import engine
 import random
-from .common import LiveDiffculty
+
+from app.model import SafeUser
+from . import common
+from sqlalchemy.exc import NoResultFound
 
 
-def create_room(live_id: int, select_difficully: LiveDiffculty) -> int:
+def create_room(live_id: int, select_difficully: common.LiveDiffculty, owner:SafeUser) -> common.RoomCreateResponse:
     room_id = random.randint(0, 1000000)
     with engine.begin() as conn:
-        result = conn.execute(
-            text("INSERT INTO `room` (room_id, live_id, joined_user_count,max_user_count) VALUES(:room_id, :live_id,:joined_user_count,:max_user_count)"),
-            {"room_id": room_id, "live_id": live_id ,"joined_user_count": 0,"max_user_count":4},
+        create_result = conn.execute(
+            text("INSERT INTO `room` (room_id, live_id, joined_user_count,max_user_count,status,owner_id) VALUES(:room_id, :live_id,:joined_user_count,:max_user_count,:status,:owner_id)"),
+            {"room_id": room_id, "live_id": live_id ,"joined_user_count": 1,"max_user_count":4,"status":1,"owner_id":owner.id},
         )
-    return room_id
+        join_result = conn.execute(
+            text("INSERT INTO `room_user` (room_id,user_id,name,leader_card_id,select_difficulty,is_me,is_host) VALUES(:room_id,:user_id,:name,:leader_card_id,:select_difficulty,:is_me,:is_host)"),
+            {"room_id":room_id,"user_id":owner.id,"name":owner.name,"leader_card_id":owner.leader_card_id,"select_difficulty":1,"is_me":True,"is_host":True}
+        )
+    return common.RoomCreateResponse(room_id=room_id)
+
+
+def list_room(live_id: int) -> common.RoomListResponse:
+    rooms_info = []
+    with engine.begin() as conn:
+        if live_id != 0:
+            result = conn.execute(
+                text("SELECT `room_id`, `live_id`, `joined_user_count` , `status`,`owner_id`,`max_user_count` FROM `room` WHERE `live_id`=:live_id"),
+                {"live_id": live_id},
+            )
+        elif live_id == 0:
+            result = conn.execute(
+                text("SELECT `room_id`, `live_id`, `joined_user_count`, `status`,`owner_id`,`max_user_count` FROM `room`"),
+                {},
+            )
+        try:
+            rooms_info = result.all()
+        except NoResultFound:
+            return None
+    return common.RoomListResponse(room_info_list=rooms_info)
+
+
+def join_room(room_id: int,select_difficulty:common.LiveDiffculty,user:SafeUser) -> common.RoomJoinResponse:
+    with engine.begin() as conn:
+        room_user_result = conn.execute(
+            text("INSERT INTO `room_user` (room_id,user_id,name,leader_card_id,select_difficulty,is_me,is_host) VALUES(:room_id,:user_id,:name,:leader_card_id,:select_difficulty,:is_me,:is_host)"),
+            {"room_id":room_id,"user_id":user.id,"name":user.name,"leader_card_id":user.leader_card_id,"select_difficulty":1,"is_me":True,"is_host":False}
+        )
+        room_result = conn.execute(
+            text("update `room` set `joined_user_count`= `joined_user_count`+1 where room_id=:room_id"),
+            {"room_id":room_id}
+        )
+        pass
+    return common.RoomJoinResponse(join_room_result=1)
+
+
+def wait_room(room_id: int) -> common.RoomWaitResponse:
+    users = []
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("select `user_id`,`name`,`leader_card_id`,`select_difficulty`,`is_me`,`is_host` from `room_user` where `room_id`=:room_id"),
+            {"room_id": room_id},
+        )
+        room_result = conn.execute(
+            text("select `status` from `room` where `room_id`=:room_id"),
+            {"room_id":room_id},
+        )
+        try:
+            users = result.all()
+        except NoResultFound:
+            return None
+        finally:
+            room_status = room_result.all()
+            state = int(room_status[0].status)
+    return common.RoomWaitResponse(status=state, room_user_list=users)
+
+
+def start_room(room_id:int) -> None:
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("update `room` set `status`=2 WHERE `room_id`=:room_id"),
+            {"room_id":room_id}
+        )
+    return None
+
+
+def end_room(room_id:int ,judge_count_list:list[int],score:int, user:SafeUser)->None:
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("insert into `user_score` (user_id,perfect,great,good,bad,miss,score) VALUES(:user_id,:perfect,:great,:good,:bad,:miss,:score) "),
+            {"user_id":user.id,"perfect":judge_count_list[0],"great":judge_count_list[1],"good":judge_count_list[2],"bad":judge_count_list[3],"miss":judge_count_list[4],"score":score},
+        )
+    return None
