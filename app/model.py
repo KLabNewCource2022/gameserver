@@ -141,9 +141,7 @@ def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> 
             dict(live_id=live_id,  wait_room_status=WaitRoomStatus.WAITING, created_by=user.id)
         )
         result = conn.execute(
-            text(
-                "SELECT `id` FROM room ORDER BY id DESC LIMIT 1"
-            )
+            text("SELECT `id` FROM room ORDER BY id DESC LIMIT 1")
         )
         room = result.one()
         # 作成したらホストは強制的にJoin
@@ -153,12 +151,11 @@ def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> 
 def get_room_info_list(live_id: int) -> list[RoomInfo]:
     with engine.begin() as conn:
         rooms_result = conn.execute(
-            text(
-                "SELECT * FROM `room` WHERE `live_id` = :live_id ORDER BY `id`"
-            ),
+            text("SELECT * FROM `room` WHERE `live_id` = :live_id ORDER BY `id`"),
             dict(live_id=live_id)
         )
         rooms = rooms_result.all()
+
         room_member_cnt_result = conn.execute(
             text(
                 """
@@ -186,16 +183,12 @@ def get_room_info_list(live_id: int) -> list[RoomInfo]:
 def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> JoinRoomResult:
     with engine.begin() as conn:
         room_result = conn.execute(
-            text(
-                """
-                SELECT `max_user_count`, `room_status` FROM `room` WHERE id = :room_id
-                """
-            ),
+            text("SELECT `max_user_count`, `can_join` FROM `room` WHERE id = :room_id"),
             dict(room_id=room_id)
         )
         room = room_result.one()
 
-        if room.room_status == JoinRoomResult.OK:
+        if room.can_join:
             user = _get_user_by_token(conn, token)
             _create_room_member(conn, room_id, user.id, select_difficulty)
 
@@ -213,9 +206,8 @@ def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> Jo
 
             if room_user_count.member_count >= room.max_user_count:
                 conn.execute(
-                    text(
-                        "UPDATE `room` SET `room_status` = :room_status WHERE `id` = :id"
-                    ),
-                    dict(room_status=int(JoinRoomResult.ROOM_FULL), id=room_id)
+                    text("UPDATE `room` SET `can_join` = :can_join WHERE `id` = :id"),
+                    dict(can_join=False, id=room_id)
                 )
+
         return room.room_status
