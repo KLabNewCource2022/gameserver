@@ -178,12 +178,13 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
             ),
             {"room_id": room_id},
         )
+        is_host: bool = False
         try:
             row = result.one()
             if row.joined_user_count is None:
                 # Note: create_room 直後は room_member にまだ追加されておらず joined_user_count is None となる
-                # Nothing to do
-                pass
+                # この部屋に初めに参加する人 == ホスト
+                is_host = True
             elif row.joined_user_count >= row.max_user_count:
                 # 参加者数 >= 参加上限 : 満員
                 return JoinRoomResult.RoomFull
@@ -196,9 +197,14 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
 
         conn.execute(
             text(
-                "INSERT INTO `room_member` (room_id, select_difficulty, token) VALUES (:room_id, :difficulty, :token)"
+                "INSERT INTO `room_member` (room_id, select_difficulty, token, is_host) VALUES (:room_id, :difficulty, :token, :is_host)"
             ),
-            {"room_id": room_id, "difficulty": difficulty.value, "token": token},
+            {
+                "room_id": room_id,
+                "difficulty": difficulty.value,
+                "token": token,
+                "is_host": 1 if is_host else 0,
+            },
         )
         # 入場OK
         return JoinRoomResult.OK
