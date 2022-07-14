@@ -145,5 +145,13 @@ class RoomResultResponse(BaseModel):
 def room_result(req: RoomResultRequest):
     result_user_list = model.room_result_polling(req.room_id)
 
-    print(f"これーーーーーーーー -> {RoomResultResponse(result_user_list=result_user_list)}")
     return RoomResultResponse(result_user_list=result_user_list)
+
+class RoomLeaveRequest(BaseModel):
+    room_id: int
+
+@app.post("/room/leave")
+def room_leave(req: RoomLeaveRequest, token: str = Depends(get_auth_token)):
+    model.leave_room(req.room_id, token)
+
+    return dict()

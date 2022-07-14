@@ -149,8 +149,8 @@ def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> 
 def get_room_info_list(live_id: int) -> list[RoomInfo]:
     with engine.begin() as conn:
         rooms = conn.execute(
-            text("SELECT * FROM `room` WHERE `live_id` = :live_id ORDER BY `id`"),
-            dict(live_id=live_id)
+            text("SELECT * FROM `room` WHERE `live_id` = :live_id AND `can_join` = :can_join ORDER BY `id`"),
+            dict(live_id=live_id, can_join=True)
         ).all()
 
         room_member_cnt = conn.execute(
@@ -180,7 +180,7 @@ def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> Jo
     with engine.begin() as conn:
         room = _get_room(conn, room_id)
 
-        if room.can_join:
+        if room.can_join or room.room_status != WaitRoomStatus.DISSOLUTION:
             user = _get_user_by_token(conn, token)
             _create_room_member(conn, room_id, user.id, select_difficulty)
 
@@ -275,13 +275,13 @@ def end_room(room_id: int, judge_count_list: list[int], score: int, token: str):
         # 終了したユーザーにはスコアが紐付いているのでそれを使う
         conn.execute(
             text("""
-            UPDATE `room` SET `room_status` = :room_status
+            UPDATE `room` SET `room_status` = :room_status, `can_join` = :can_join
             WHERE 
             (SELECT COUNT(id) as count FROM `room_member` WHERE `room_id` = :room_id)
             <= 
             (SELECT COUNT(id) as count FROM `room_member` WHERE `room_id` = :room_id AND `score_id` IS NOT NULL)
             """),
-            dict(room_status=int(WaitRoomStatus.DISSOLUTION), room_id=room_id)
+            dict(room_status=int(WaitRoomStatus.DISSOLUTION), can_join=False, room_id=room_id)
         )
 
 def room_result_polling(room_id: int) -> list[ResultUser]:
@@ -305,3 +305,37 @@ def room_result_polling(room_id: int) -> list[ResultUser]:
             ))
         
         return result_users
+
+def leave_room(room_id: int, token: str):
+    with engine.begin() as conn:
+        user = _get_user_by_token(conn, token)
+
+        conn.execute(
+            # この時点ではまだゲーム始まってないので物理削除でも良さそう
+            text("DELETE FROM `room_member` WHERE `user_id` = :user_id AND `room_id` = :room_id"),
+            dict(user_id=user.id, room_id=room_id)
+        )
+
+        conn.execute(
+            text("UPDATE `room` SET `can_join` = :can_join WHERE `id` = :id"),
+            dict(can_join=False, id=room_id)
+        )
+
+        room = _get_room(conn, room_id)
+
+        # NOTE: 現状can_joinがFalseに切り替わるのは、ルームが満員のときだけなのでこの条件で行ける
+        # 別の判定も入るとこれだけじゃ無理かも
+        # 部屋が解散されたかどうかはroom_statusを見ればわかるのでそちらを使う
+        if not room.can_join:
+            conn.execute(
+                text("UPDATE `room` SET `can_join` = :can_join WHERE `id` = :room_id"),
+                dict(can_join=True, room_id=room_id)
+            )
+            return
+        
+        # ホストが抜けたら解散済みにしたほうが良さそうなので
+        if room.created_by == user.id:
+            conn.execute(
+                text("UPDATE `room` SET `room_status` = :room_status WHERE `id` = :room_id"),
+                dict(room_status=int(WaitRoomStatus.DISSOLUTION), room_id=room_id)
+            )
