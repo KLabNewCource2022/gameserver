@@ -4,7 +4,7 @@ from enum import Enum, IntEnum
 from typing import Optional
 
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 
@@ -100,9 +100,6 @@ class RoomInfo(BaseModel):
     joined_user_count: int
     max_user_count: int
 
-    class Config:
-        orm_mode = True
-
 class RoomUser(BaseModel):
     user_id: int
     name: str
@@ -111,16 +108,10 @@ class RoomUser(BaseModel):
     is_me: bool
     is_host: bool
 
-    class Config:
-        orm_mode = True
-
 class ResultUser(BaseModel):
     user_id: int
-    judge_count_list: list[int]
+    judge_count_list: list[int] = Field(..., min_items=5, max_items=5)
     score: int
-
-    class Config:
-        orm_mode = True
 
 def _create_room_member(conn, room_id: int, user_id: int, select_difficulty: LiveDifficulty):
         conn.execute(
@@ -216,20 +207,19 @@ def room_polling(room_id: int, token: str) -> tuple[WaitRoomStatus, list[RoomUse
     with engine.begin() as conn:
         room = _get_room(conn, room_id)
 
-        room_members_result = conn.execute(
+        room_members = conn.execute(
             text("SELECT user_id, select_difficulty FROM room_member WHERE room_id = :room_id"),
             dict(room_id=room_id)
-        )
-        room_members = room_members_result.all()
+        ).all()
 
         request_user = _get_user_by_token(conn, token)
         room_user_list = []
         for room_member in room_members:
-            user_result = conn.execute(
+            user = conn.execute(
                 text("SELECT name, leader_card_id FROM user WHERE id = :user_id"),
                 dict(user_id=room_member.user_id)
-            )
-            user = user_result.one()
+            ).one()
+
             room_user_list.append(RoomUser(
                 user_id=room_member.user_id,
                 name=user.name,
@@ -249,7 +239,7 @@ def start_room(room_id: int, token: str):
         # ホストチェック
         room = _get_room(conn, room_id)
         if room.created_by != user.id:
-            raise HTTPException(status_code=403, detail="Requests from non-host user.")
+            return
 
         conn.execute(
             text("UPDATE room SET `room_status` = :room_status WHERE `id` = :room_id"),
@@ -261,8 +251,6 @@ def end_room(room_id: int, judge_count_list: list[int], score: int, token: str):
         user = _get_user_by_token(conn, token)
         if user is None:
             return
-        
-        room = _get_room(conn, room_id)
 
         perfect = judge_count_list[0]
         great = judge_count_list[1]
@@ -295,3 +283,25 @@ def end_room(room_id: int, judge_count_list: list[int], score: int, token: str):
             """),
             dict(room_status=int(WaitRoomStatus.DISSOLUTION), room_id=room_id)
         )
+
+def room_result_polling(room_id: int) -> list[ResultUser]:
+    with engine.begin() as conn:
+        room_members = conn.execute(
+            text("SELECT `user_id`, `score_id` FROM room_member WHERE room_id = :room_id"),
+            dict(room_id=room_id)
+        ).all()
+
+        result_users = []
+        for room_member in room_members:
+            score = conn.execute(
+                text("SELECT * FROM score WHERE id = :score_id"),
+                dict(score_id=room_member.score_id)
+            ).one()
+
+            result_users.append(ResultUser(
+                user_id=room_member.user_id,
+                judge_count_list=[score.perfect, score.great, score.good, score.bad, score.miss],
+                score=score.score
+            ))
+        
+        return result_users
