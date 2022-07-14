@@ -175,7 +175,8 @@ class RoomResultResponse(BaseModel):
 @app.post("/room/result", response_model=RoomResultResponse)
 def room_result(req: RoomResultRequest):
     """ルーム待機中（ポーリング）。APIの結果でゲーム開始がわかる。 クライアントはn秒間隔で投げる想定。"""
-    return RoomResultResponse(result_user_list=[])
+    result_user_list: list[ResultUser] = model.room_member_result(req.room_id)
+    return RoomResultResponse(result_user_list=result_user_list)
 
 
 class RoomLeaveRequest(BaseModel):
