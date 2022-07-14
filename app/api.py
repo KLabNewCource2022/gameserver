@@ -158,8 +158,9 @@ class RoomEndRequest(BaseModel):
 
 
 @app.post("/room/end", response_model=Empty)
-def room_end(req: RoomEndRequest):
+def room_end(req: RoomEndRequest, token: str = Depends(get_auth_token)):
     """ルームのライブ終了時リクエスト。ゲーム終わったら各人が叩く。"""
+    model.set_room_user_result(req.room_id, req.judge_count_list, req.score, token)
     return {}
 
 
