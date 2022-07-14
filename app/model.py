@@ -131,8 +131,8 @@ def create_room(live_id: int, difficulty: LiveDifficulty) -> int:
         result = conn.execute(
             text(
                 "INSERT INTO `room` "
-                "(live_id, select_difficulty, max_user_count) "
-                "VALUES (:live_id, :difficulty, 4)"
+                "(live_id, max_user_count) "
+                "VALUES (:live_id, 4)"
             ),
             {"live_id": live_id, "difficulty": difficulty.value},
         )

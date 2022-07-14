@@ -12,7 +12,6 @@ DROP TABLE IF EXISTS `room`;
 CREATE TABLE `room` (
   `room_id` bigint NOT NULL AUTO_INCREMENT,
   `live_id` int DEFAULT NULL,
-  `select_difficulty` int DEFAULT NULL,
   `max_user_count` int DEFAULT NULL,
   `started` bit DEFAULT 0,
   PRIMARY KEY (`room_id`)
