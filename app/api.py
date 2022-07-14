@@ -148,3 +148,21 @@ def room_wait(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
     """wait room"""
     waitStatus, user_list = model.wait_room(token, req.room_id)
     return RoomWaitResponse(status=waitStatus, room_user_list=user_list)
+
+
+# ------------------- ROOM START --------------------------
+
+
+class RoomStartRequest(BaseModel):
+    room_id: int
+
+
+class RoomStartResponse(BaseModel):
+    pass
+
+
+@app.post("/room/start", response_model=RoomStartResponse)
+def room_start(req: RoomStartRequest, token: str = Depends(get_auth_token)):
+    """start room"""
+    model.start_room(token, req.room_id)
+    return RoomStartResponse()

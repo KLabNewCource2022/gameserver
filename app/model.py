@@ -240,3 +240,16 @@ def wait_room(token: str, room_id: int):
             return waitStatus, user_list
 
     return waitStatus, user_list
+
+
+def start_room(token: str, room_id: int):
+    with engine.begin() as conn:
+        # start room
+        conn.execute(
+            text(
+                "update room set started = 1 where room_id = :room_id"
+            ),
+            {
+                "room_id": room_id
+            },
+        )
