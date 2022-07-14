@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, IntEnum, auto
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
@@ -18,22 +18,24 @@ async def root():
 
 
 # Enum
-class LiveDifficulty(Enum):
-    normal  = 0
-    hard    = 1
+class LiveDifficulty(IntEnum):
+    normal = 0
+    hard = 1
 
 
-class JoinRoomResult(Enum):
-    Ok          = 1  # 入場OK
-    RoomFull    = 2  # 満員
-    Disbanded   = 3  # 解散済み
-    OtherError  = 4  # その他エラー
+class JoinRoomResult(IntEnum):
+    Ok = 1  # 入場OK
+    RoomFull = 2  # 満員
+    Disbanded = 3  # 解散済み
+    OtherError = 4  # その他エラー
 
 
-class WaitRoomStatus(Enum):
-    Waiting     = 1  # ホストがライブ開始ボタン押すのを待っている
-    LiveStart	= 2  # ライブ画面遷移OK
-    Dissolution	= 3  # 解散された
+class WaitRoomStatus(IntEnum):
+    Waiting = 1  # ホストがライブ開始ボタン押すのを待っている
+    LiveStart = 2  # ライブ画面遷移OK
+    Dissolution = 3  # 解散された
+
+
 # User APIs
 
 
@@ -93,9 +95,10 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
     return {}
 
 
-
 # ルームを新規で建てる。
 @app.post("/room/create", response_model=RoomCreateResponse)
-def RoomCreate(req: RoomCreateResquest ,token: str = Depends(get_auth_token)):
-    room_id = model.create_room(token, live_id=req.live_id, select_difficulty=req.select_difficulty)
+def RoomCreate(req: RoomCreateResquest, token: str = Depends(get_auth_token)):
+    room_id = model.create_room(
+        token, live_id=req.live_id, select_difficulty=req.select_difficulty.numerator
+    )
     return RoomCreateResponse(room_id=room_id)

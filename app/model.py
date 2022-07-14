@@ -79,31 +79,31 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
-def create_room(token: str, live_id:int, select_difficulty:int) -> Room:
+def create_room(token: str, live_id: int, select_difficulty: int) -> int:
     with engine.begin() as conn:
-        #ユーザid取得
-        user_id = _get_user_by_token(conn=conn,token=token).id
-        #部屋作成
-        result = conn.execute(
-            text(
-                "INSERT INTO `room` (live_id) VALUES (:live_id);SELECT * from room where id = LAST_INSERT_ID()"
-            ),
-            {"live_id": live_id},
-        )
-        #部屋名取得
-        try:
-            row = result.one()
-            print(f"{row}aaaaaaaaaaaaaaaaa")
-        except:
-            print(f"{row}aaaaaaaaaaaaaaaaa")
-            return None
-        room = Room.from_orm(row)
+        room_id = _create_room(conn=conn, live_id=live_id)
+        join_room(conn=conn, token=token, room_id=room_id, select_difficulty=select_difficulty)
+        return room_id
 
-        result = conn.execute(
-            text(
-                "INSERT INTO `room_member` (room_id , user_id , select_difficulty) VALUES (:room_id ,:user_id ,:select_difficulty)"
-            ),
-            {"room_id": room.id,"user_id":user_id,"select_difficulty":select_difficulty},
-        )
+def _create_room(conn,live_id:int) -> int:
+    # 部屋作成
+    result = conn.execute(
+        text(
+            "INSERT INTO `room` (live_id) VALUES (:live_id)"
+        ),
+        {"live_id": live_id},
+    )
+    return result.lastrowid
 
-        return room.id
+
+def join_room(conn, token: str, room_id: int, select_difficulty:int):
+    # ユーザid取得
+    user_id = _get_user_by_token(conn=conn, token=token).id
+    result = conn.execute(
+        text(
+            "INSERT INTO `room_member` (room_id , user_id , select_difficulty) VALUES (:room_id ,:user_id ,:select_difficulty)"
+        ),
+        {"room_id": room_id,"user_id":user_id,"select_difficulty":select_difficulty},
+    )
+
+
