@@ -246,6 +246,19 @@ def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
     )
 
 
+def _find_first_room_client_user(conn, room_id: int) -> Optional[str]:
+    result = conn.execute(
+        text(
+            "SELECT token FROM `room_member` WHERE room_id = :room_id AND is_host = 0"
+        ),
+        {"room_id": room_id},
+    )
+    try:
+        return result.one().token
+    except NoResultFound:
+        return None
+
+
 def leave_room(room_id: int, token: str) -> None:
     """ルームから退場する"""
     with engine.begin() as conn:
