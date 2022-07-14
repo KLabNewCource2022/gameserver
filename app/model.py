@@ -133,8 +133,8 @@ def create_room(live_id: int, difficulty: LiveDifficulty) -> int:
     return result.lastrowid
 
 
-def find_room(live_id: int):
-    """ルームを検索する"""
+def find_room(live_id: int) -> list[RoomInfo]:
+    """すべてのルームを検索する"""
     with engine.begin() as conn:
         if live_id == 0:
             query_where = ""
@@ -150,7 +150,7 @@ def find_room(live_id: int):
         )
 
         try:
-            return result.all()
+            return [RoomInfo.from_orm(row) for row in result.all()]
         except NoResultFound:
             return []
 
