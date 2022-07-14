@@ -143,7 +143,7 @@ def find_room(live_id: int) -> list[RoomInfo]:
 
         result = conn.execute(
             text(
-                "SELECT room_id, live_id, IFNULL(CC, 0) as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id) as C on room_id = ID"
+                "SELECT room_id, live_id, IFNULL(CC, 0) as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) - COUNT(score) as CC FROM room_member GROUP BY room_id) as C on room_id = ID"
                 + query_where
             ),
             {"live_id": live_id},
@@ -174,7 +174,7 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
     with engine.begin() as conn:
         result = conn.execute(
             text(
-                "SELECT room_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member WHERE room_id = :room_id GROUP BY room_id) as C on room_id = ID WHERE room_id=:room_id"
+                "SELECT room_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) - COUNT(score) as CC FROM room_member WHERE room_id = :room_id GROUP BY room_id) as C on room_id = ID WHERE room_id=:room_id"
             ),
             {"room_id": room_id},
         )
@@ -215,7 +215,7 @@ def room_status(room_id: int) -> WaitRoomStatus:
     with engine.begin() as conn:
         result = conn.execute(
             text(
-                "SELECT room_id, CC as joined_user_count, started from `room` LEFT OUTER JOIN (SELECT room_id as ID, IFNULL(COUNT(room_id), 0) as CC FROM room_member WHERE room_id = :room_id GROUP BY room_id) as C on room_id = ID WHERE room_id = :room_id"
+                "SELECT room_id, CC as joined_user_count, started from `room` LEFT OUTER JOIN (SELECT room_id as ID, IFNULL(COUNT(room_id) - COUNT(score), 0) as CC FROM room_member WHERE room_id = :room_id GROUP BY room_id) as C on room_id = ID WHERE room_id = :room_id"
             ),
             {"room_id": room_id},
         )
@@ -233,7 +233,7 @@ def room_member(room_id: int, token: str) -> list[RoomUser]:
     with engine.begin() as conn:
         result = conn.execute(
             text(
-                "SELECT *, id as user_id, (token = :token) as is_me, (is_host = 1) as is_host FROM `user` INNER JOIN (SELECT room_id, token as t, select_difficulty, is_host FROM `room_member` WHERE room_id = :room_id) as M on token = t"
+                "SELECT *, id as user_id, (token = :token) as is_me, (is_host = 1) as is_host FROM `user` INNER JOIN (SELECT room_id, token as t, select_difficulty, is_host FROM `room_member` WHERE room_id = :room_id AND score IS NULL) as M on token = t"
             ),
             {"token": token, "room_id": room_id},
         )
