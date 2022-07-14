@@ -204,6 +204,24 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
         return JoinRoomResult.OK
 
 
+def room_status(room_id: int) -> WaitRoomStatus:
+    """ルーム状態を取得する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "SELECT room_id, CC as joined_user_count, started from `room` LEFT OUTER JOIN (SELECT room_id as ID, IFNULL(COUNT(room_id), 0) as CC FROM room_member WHERE room_id = :room_id GROUP BY room_id) as C on room_id = ID WHERE room_id = :room_id"
+            ),
+            {"room_id": room_id},
+        )
+        row = result.one()
+        if row.joined_user_count == 0:
+            return WaitRoomStatus.Dissolution
+        elif row.started == b"\x01":
+            return WaitRoomStatus.LiveStart
+        else:
+            return WaitRoomStatus.Waiting
+
+
 def leave_room(room_id: int, token: str) -> None:
     """ルームから退場する"""
     with engine.begin() as conn:
