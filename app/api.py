@@ -147,6 +147,7 @@ class RoomStartRequest(BaseModel):
 @app.post("/room/start", response_model=Empty)
 def room_start(req: RoomStartRequest):
     """ルームのライブ開始。部屋のオーナーがたたく。"""
+    model.room_start_live(req.room_id)
     return {}
 
 
