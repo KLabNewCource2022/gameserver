@@ -112,8 +112,14 @@ class RoomWaitResponse(BaseModel):
     room_user_list: list[RoomUser]
 
 @app.post("/room/wait", response_model=RoomWaitResponse)
-def room_join(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
+def room_wait(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
     status, room_user_list = model.room_polling(req.room_id, token)
 
     return RoomWaitResponse(status=status, room_user_list=room_user_list)
-    
+
+class RoomStartRequest(BaseModel):
+    room_id: int
+
+@app.post("/room/start")
+def room_start(req: RoomStartRequest, token: str = Depends(get_auth_token)):
+    model.start_room(req.room_id, token)

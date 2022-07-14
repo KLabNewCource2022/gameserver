@@ -246,5 +246,17 @@ def room_polling(room_id: int, token: str) -> tuple[WaitRoomStatus, list[RoomUse
         
         return room.room_status, room_user_list
 
+def start_room(room_id: int, token: str):
+    with engine.begin() as conn:
+        user = _get_user_by_token(conn, token)
+        if user is None:
+            return
+        # ホストチェック
+        room = _get_room(conn, room_id)
+        if room.created_by != user.id:
+            raise HTTPException(status_code=403, detail="Requests from non-host user.")
 
-        
+        conn.execute(
+            text("UPDATE room SET `room_status` = :room_status WHERE `id` = :room_id"),
+            dict(room_status=int(WaitRoomStatus.LIVE_START), room_id=room_id),
+        )
