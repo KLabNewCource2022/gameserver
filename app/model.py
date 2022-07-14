@@ -10,6 +10,29 @@ from sqlalchemy.exc import NoResultFound
 
 from .db import engine
 
+# Enums
+
+
+class LiveDifficulty(Enum):
+    normal: int = 1
+    hard: int = 2
+
+
+class JoinRoomResult(Enum):
+    OK: int = 1  # 入場OK
+    RoomFull: int = 2  # 満員
+    Disbanded: int = 3  # 解散済み
+    OtherError: int = 4  # その他エラー
+
+
+class WaitRoomStatus(Enum):
+    Waiting: int = 1  # ホストがライブ開始ボタン押すのを待っている
+    LiveStart: int = 2  # ライブ画面遷移OK
+    Dissolution: int = 3  # 解散された
+
+
+# Classes
+
 
 class InvalidToken(Exception):
     """指定されたtokenが不正だったときに投げる"""
@@ -21,6 +44,37 @@ class SafeUser(BaseModel):
     id: int
     name: str
     leader_card_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class RoomInfo(BaseModel):
+    room_id: int  # 部屋識別子
+    live_id: int  # プレイ対象の楽曲識別子
+    joined_user_count: int  # 部屋に入っている人数
+    max_user_count: int  # 部屋の最大人数
+
+    class Config:
+        orm_mode = True
+
+
+class RoomUser(BaseModel):
+    user_id: int  # ユーザー識別子
+    name: str  # ユーザー名
+    leader_card_id: int  # 設定アバター
+    select_difficulty: LiveDifficulty  # 選択難易度
+    is_me: bool  # リクエスト投げたユーザーと同じか
+    is_host: bool  # 部屋を立てた人か
+
+    class Config:
+        orm_mode = True
+
+
+class ResultUser(BaseModel):
+    user_id: int  # ユーザー識別子
+    judge_count_list: list[int]  # 各判定数（良い判定から昇順）
+    score: int  # 獲得スコア
 
     class Config:
         orm_mode = True
@@ -65,3 +119,67 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
             ),
             {"token": token, "name": name, "leader": leader_card_id},
         )
+
+
+def create_room(live_id: int, difficulty: LiveDifficulty) -> int:
+    """ルームを作成する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "INSERT INTO `room` (live_id, select_difficulty, max_user_count) VALUES (:live_id, :difficulty, 4)"
+            ),
+            {"live_id": live_id, "difficulty": difficulty.value},
+        )
+    return result.lastrowid
+
+
+def find_room(live_id: int):
+    """ルームを検索する"""
+    with engine.begin() as conn:
+        if live_id == 0:
+            query_where = ""
+        else:
+            query_where = " where live_id=:live_id"
+
+        result = conn.execute(
+            text(
+                "SELECT room_id, live_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id) as C on room_id = ID"
+                + query_where
+            ),
+            {"live_id": live_id},
+        )
+
+        try:
+            return result.all()
+        except NoResultFound:
+            return []
+
+
+def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomResult:
+    """ルームに入場する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "SELECT room_id, CC as joined_user_count, max_user_count FROM room LEFT OUTER JOIN (SELECT room_id as ID, COUNT(room_id) as CC FROM room_member GROUP BY room_id WHERE room_id=:room_id) as C on room_id = ID WHERE room_id=:room_id"
+            ),
+            {"room_id": room_id},
+        )
+        try:
+            if result.joined_user_count >= result.max_iser_count:
+                # 参加者数 >= 参加上限 : 満員
+                return JoinRoomResult.RoomFull
+            if result.joined_user_count == 0:
+                # 誰も参加していない : 解散済み
+                return JoinRoomResult.Disbanded
+        except NoResultFound:
+            # クエリの結果が空 : その他エラー
+            return JoinRoomResult.OtherError
+
+        conn.execute(
+            text(
+                "INSERT INTO `room_member` (room_id, select_difficulty, token) VALUES (:room_id, :difficulty, :token)"
+            ),
+            {"room_id": room_id, "difficulty": difficulty.value, "token": token},
+        )
+        # 入場OK
+        return JoinRoomResult.OK
