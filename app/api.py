@@ -133,9 +133,11 @@ class RoomWaitResponse(BaseModel):
 
 
 @app.post("/room/wait", response_model=RoomWaitResponse)
-def room_wait(req: RoomWaitRequest):
+def room_wait(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
     """ルーム待機中（ポーリング）。APIの結果でゲーム開始がわかる。 クライアントはn秒間隔で投げる想定。"""
-    return RoomWaitResponse(status=WaitRoomStatus.Waiting, room_user_list=[])
+    status: WaitRoomStatus = model.room_status(req.room_id)
+    room_user_list: list[RoomUser] = model.room_member(req.room_id, token)
+    return RoomWaitResponse(status=status, room_user_list=room_user_list)
 
 
 class RoomStartRequest(BaseModel):
