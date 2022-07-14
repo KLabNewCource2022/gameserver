@@ -252,6 +252,24 @@ def room_start_live(room_id: int) -> None:
         )
 
 
+def set_room_user_result(
+    room_id: int, judge_count_list: list[int], score: int, token: str
+) -> None:
+    """リザルトを記録する"""
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE `room_member` SET score = :score, judge_count_list = :judges WHERE room_id = :room_id AND token = :token"
+            ),
+            {
+                "room_id": room_id,
+                "score": score,
+                "judges": ",".join(str(i) for i in judge_count_list),
+                "token": token,
+            },
+        )
+
+
 def _is_user_host(conn, room_id: int, token: str) -> bool:
     result = conn.execute(
         text(
