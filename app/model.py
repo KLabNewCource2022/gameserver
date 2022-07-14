@@ -131,12 +131,11 @@ def _create_room_member(conn, room_id: int, user_id: int, select_difficulty: Liv
         )
 
 def _get_room(conn, room_id: int):
-    room_result = conn.execute(
+    room = conn.execute(
         text("SELECT * FROM `room` WHERE id = :room_id"),
         dict(room_id=room_id)
-    )
-
-    return room_result.one()
+    ).one()
+    return room
 
 
 def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> int:
@@ -149,23 +148,21 @@ def create_room(live_id: int, select_difficulty: LiveDifficulty, token: str) -> 
             ),
             dict(live_id=live_id,  wait_room_status=int(WaitRoomStatus.WAITING), created_by=user.id)
         )
-        result = conn.execute(
+        room = conn.execute(
             text("SELECT `id` FROM room ORDER BY id DESC LIMIT 1")
-        )
-        room = result.one()
+        ).one()
         # 作成したらホストは強制的にJoin
         _create_room_member(conn, room.id, user.id, select_difficulty)
     return room.id
 
 def get_room_info_list(live_id: int) -> list[RoomInfo]:
     with engine.begin() as conn:
-        rooms_result = conn.execute(
+        rooms = conn.execute(
             text("SELECT * FROM `room` WHERE `live_id` = :live_id ORDER BY `id`"),
             dict(live_id=live_id)
-        )
-        rooms = rooms_result.all()
+        ).all()
 
-        room_member_cnt_result = conn.execute(
+        room_member_cnt = conn.execute(
             text(
                 """
                 SELECT room_id, COUNT(id) as member_cnt FROM `room_member`
@@ -175,8 +172,7 @@ def get_room_info_list(live_id: int) -> list[RoomInfo]:
                 """
             ),
             dict(live_id=live_id)
-        )
-        room_member_cnt = room_member_cnt_result.all()
+        ).all()
 
         rooms_info = []
         for room, member_cnt in zip(rooms, room_member_cnt):
@@ -197,7 +193,7 @@ def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> Jo
             user = _get_user_by_token(conn, token)
             _create_room_member(conn, room_id, user.id, select_difficulty)
 
-            room_member_cnt_result = conn.execute(
+            room_user_count = conn.execute(
                 text(
                     """
                     SELECT COUNT(id) as member_count FROM `room_member`
@@ -206,8 +202,7 @@ def join_room(room_id: int, select_difficulty: LiveDifficulty, token: str) -> Jo
                     """
                 ),
                 dict(room_id=room_id)
-            )
-            room_user_count = room_member_cnt_result.one()
+            ).one()
 
             if room_user_count.member_count >= room.max_user_count:
                 conn.execute(
@@ -266,6 +261,8 @@ def end_room(room_id: int, judge_count_list: list[int], score: int, token: str):
         user = _get_user_by_token(conn, token)
         if user is None:
             return
+        
+        room = _get_room(conn, room_id)
 
         perfect = judge_count_list[0]
         great = judge_count_list[1]
@@ -282,9 +279,19 @@ def end_room(room_id: int, judge_count_list: list[int], score: int, token: str):
             dict(score=score, perfect=perfect, great=great, good=good, bad=bad, miss=miss)
         ).lastrowid
 
-        print(score_id)
-        
         conn.execute(
-            text("UPDATE `room` SET `room_status` = :room_status, `score_id` = :score_id WHERE `id` = :room_id"),
-            dict(room_status=int(WaitRoomStatus.DISSOLUTION), score_id=score_id, room_id=room_id),
+            text("UPDATE `room_member` SET `score_id` = :score_id WHERE `room_id` = :room_id AND `user_id` = :user_id"),
+            dict(score_id=score_id, room_id=room_id, user_id=user.id)
+        )
+
+        # 終了したユーザーにはスコアが紐付いているのでそれを使う
+        conn.execute(
+            text("""
+            UPDATE `room` SET `room_status` = :room_status
+            WHERE 
+            (SELECT COUNT(id) as count FROM `room_member` WHERE `room_id` = :room_id)
+            <= 
+            (SELECT COUNT(id) as count FROM `room_member` WHERE `room_id` = :room_id AND `score_id` IS NOT NULL)
+            """),
+            dict(room_status=int(WaitRoomStatus.DISSOLUTION), room_id=room_id)
         )

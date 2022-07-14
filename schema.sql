@@ -1,4 +1,5 @@
 
+DROP TABLE IF EXISTS `score`;
 DROP TABLE IF EXISTS `room_member`;
 DROP TABLE IF EXISTS `room`;
 DROP TABLE IF EXISTS `user`;
