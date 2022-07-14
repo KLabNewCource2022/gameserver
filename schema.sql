@@ -24,5 +24,6 @@ CREATE TABLE `room_member` (
   `room_id` bigint NOT NULL,
   `select_difficulty` int DEFAULT NULL,
   `token` varchar(255) DEFAULT NULL,
+  `is_host` bit DEFAULT 0,
   PRIMARY KEY (`member_id`)
 );
