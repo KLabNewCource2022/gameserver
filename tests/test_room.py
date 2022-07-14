@@ -14,7 +14,6 @@ def _create_users():
         )
         user_tokens.append(response.json()["user_token"])
 
-
 _create_users()
 
 
@@ -22,6 +21,21 @@ def _auth_header(i=0):
     token = user_tokens[i]
     return {"Authorization": f"bearer {token}"}
 
+def test_room_create():
+    response = client.post(
+        "/room/create",
+        headers=_auth_header(),
+        json={"live_id": 1001, "select_difficulty": 1},
+    )
+    assert response.status_code == 200
+
+    room_id = response.json()["room_id"]
+    print(f"room/create {room_id=}")
+
+def test_room_list():
+    response = client.post("/room/list", json={"live_id": 1001})
+    assert response.status_code == 200
+    print("room/list response:", response.json())
 
 def test_room_1():
     response = client.post(
@@ -53,9 +67,16 @@ def test_room_1():
     response = client.post(
         "/room/end",
         headers=_auth_header(),
-        json={"room_id": room_id, "score": 1234, "judge_count_list": [4, 3, 2]},
+        json={"room_id": room_id, "score": 1234, "judge_count_list": [4, 3, 2, 1, 0]},
     )
     assert response.status_code == 200
+    print("room/end response:", response.json())
+    response = client.post(
+        "/room/end",
+        headers=_auth_header(),
+        json={"room_id": room_id, "score": 1234, "judge_count_list": [4, 3, 2]},
+    )
+    assert response.status_code == 422
     print("room/end response:", response.json())
 
     response = client.post(
