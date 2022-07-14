@@ -104,3 +104,38 @@ def create_room(token: str, live_id: int, difficulty: LiveDifficulty) -> int:
         )
 
         return room_id
+
+
+class RoomInfo(BaseModel):
+    room_id: int
+    live_id: int
+    joined_user_count: int
+    max_user_count: int
+
+
+def list_rooms(live_id: int) -> list[RoomInfo]:
+    with engine.begin() as conn:
+        if live_id == 0:
+            result = conn.execute(
+                text(
+                    "select id,live_id,member_count from room where status=1 and member_count<4"
+                )
+            )
+        else:
+            result = conn.execute(
+                text(
+                    "select id,live_id,member_count from room where status=1 and member_count<4 and live_id=:live_id"
+                ),
+                {"live_id": live_id},
+            )
+
+        roomlist = []
+        for row in result:
+            room = RoomInfo(
+                room_id=row.id,
+                live_id=row.live_id,
+                joined_user_count=row.member_count,
+                max_user_count=4,
+            )
+            roomlist.append(room)
+        return roomlist
