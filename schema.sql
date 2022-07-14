@@ -21,5 +21,5 @@ CREATE TABLE `room_member` (
   `room_id` int DEFAULT NULL,
   `user_id` int DEFAULT NULL,
   `select_difficulty` int DEFAULT NULL,
-  PRIMARY KEY (`id`,`user_id`)
+  PRIMARY KEY (`id`)
 );

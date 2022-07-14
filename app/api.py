@@ -5,7 +5,7 @@ from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from . import model
-from .model import SafeUser
+from .model import *
 
 app = FastAPI()
 
@@ -16,24 +16,6 @@ app = FastAPI()
 async def root():
     return {"message": "Hello World"}
 
-
-# Enum
-class LiveDifficulty(IntEnum):
-    normal = 0
-    hard = 1
-
-
-class JoinRoomResult(IntEnum):
-    Ok = 1  # 入場OK
-    RoomFull = 2  # 満員
-    Disbanded = 3  # 解散済み
-    OtherError = 4  # その他エラー
-
-
-class WaitRoomStatus(IntEnum):
-    Waiting = 1  # ホストがライブ開始ボタン押すのを待っている
-    LiveStart = 2  # ライブ画面遷移OK
-    Dissolution = 3  # 解散された
 
 
 # User APIs
@@ -55,6 +37,14 @@ class RoomCreateResquest(BaseModel):
 
 class RoomCreateResponse(BaseModel):
     room_id: int
+
+
+class RoomListResquest(BaseModel):
+    live_id: int
+
+
+class RoomListResponse(BaseModel):
+    room_info_list: list[RoomInfo]
 
 
 @app.post("/user/create", response_model=UserCreateResponse)
@@ -102,3 +92,13 @@ def RoomCreate(req: RoomCreateResquest, token: str = Depends(get_auth_token)):
         token, live_id=req.live_id, select_difficulty=req.select_difficulty.numerator
     )
     return RoomCreateResponse(room_id=room_id)
+
+
+# ルームを新規で建てる。
+@app.post("/room/list", response_model=RoomListResponse)
+def RoomList(req: RoomListResquest):
+    infolist: list[RoomInfo] = find_room(req.live_id)
+
+    print(infolist)
+    return RoomListResponse(room_info_list=infolist)
+
