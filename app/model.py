@@ -270,6 +270,32 @@ def set_room_user_result(
         )
 
 
+def room_member_result(room_id: int) -> list[ResultUser]:
+    """ルームにいるプレイヤーのリザルト一覧を取得する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "SELECT user_id, judge_count_list, score, token FROM `room_member` INNER JOIN (SELECT id as user_id, token as t FROM user) as U ON token = t WHERE room_id = :room_id"
+            ),
+            {"room_id": room_id},
+        )
+        try:
+            # まだプレイ中のユーザーがいるならリザルトは返さない
+            rows = result.all()
+            if len([None for row in rows if row.score is None]) > 0:
+                return []
+            return [
+                ResultUser(
+                    user_id=row.user_id,
+                    judge_count_list=[int(s) for s in row.judge_count_list.split(",")],
+                    score=row.score,
+                )
+                for row in rows
+            ]
+        except NoResultFound:
+            return []
+
+
 def _is_user_host(conn, room_id: int, token: str) -> bool:
     result = conn.execute(
         text(
