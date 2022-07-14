@@ -46,6 +46,12 @@ class RoomListResquest(BaseModel):
 class RoomListResponse(BaseModel):
     room_info_list: list[RoomInfo]
 
+class RoomJoinRequest(BaseModel):
+    room_id: int
+    select_difficulty: LiveDifficulty
+
+class RoomJoinResponse(BaseModel):
+    join_room_result: JoinRoomResult
 
 @app.post("/user/create", response_model=UserCreateResponse)
 def user_create(req: UserCreateRequest):
@@ -94,7 +100,7 @@ def RoomCreate(req: RoomCreateResquest, token: str = Depends(get_auth_token)):
     return RoomCreateResponse(room_id=room_id)
 
 
-# ルームを新規で建てる。
+# リストを返す
 @app.post("/room/list", response_model=RoomListResponse)
 def RoomList(req: RoomListResquest):
     infolist: list[RoomInfo] = find_room(req.live_id)
@@ -102,3 +108,8 @@ def RoomList(req: RoomListResquest):
     print(infolist)
     return RoomListResponse(room_info_list=infolist)
 
+# リストを返す
+@app.post("/room/join", response_model=RoomJoinResponse)
+def RoomJoin(req: RoomJoinRequest,token: str = Depends(get_auth_token)):
+    result = try_join(room_id=req.room_id, token=token)
+    return RoomJoinResponse(join_room_result=result)

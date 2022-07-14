@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import false, text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.engine import CursorResult
 from .db import engine
@@ -121,7 +121,7 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
 def create_room(token: str, live_id: int, select_difficulty: int) -> int:
     with engine.begin() as conn:
         room_id = _create_room(conn=conn, live_id=live_id)
-        join_room(conn=conn, token=token, room_id=room_id, select_difficulty=select_difficulty)
+        _join_room(conn=conn, token=token, room_id=room_id, select_difficulty=select_difficulty)
         return room_id
 
 def _create_room(conn,live_id:int) -> int:
@@ -135,7 +135,7 @@ def _create_room(conn,live_id:int) -> int:
     return result.lastrowid
 
 
-def join_room(conn, token: str, room_id: int, select_difficulty: int):
+def _join_room(conn, token: str, room_id: int, select_difficulty: int):
     # ユーザid取得
     user_id = _get_user_by_token(conn=conn, token=token).id
     result = conn.execute(
@@ -170,3 +170,28 @@ def find_room(live_id :int)-> list[RoomInfo]:
             ]
 
         return roominfolist
+
+def _is_Joinable(conn, room_id: int) ->JoinRoomResult:
+    result = conn.execute(
+        text("SELECT COUNT(room_id) as joined_user_count FROM room_member GROUP BY room_id WHERE room_id=:room_id"),
+        dict(room_id=room_id),
+    )
+    try:
+        row = result.one()
+    except:
+        return JoinRoomResult.Disbanded 
+
+    if row.joined_user_count < 4:
+        return JoinRoomResult.RoomFull
+    else:
+        return JoinRoomResult.OtherError
+
+
+def try_join(room_id, token: str) -> JoinRoomResult:
+
+    with engine.begin() as conn:
+        result = _is_Joinable(conn,room_id=room_id)
+        if result == JoinRoomResult.Ok:
+            _join_room(conn,token=token,room_id=room_id)
+        return result
+
