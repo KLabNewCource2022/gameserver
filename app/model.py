@@ -243,6 +243,15 @@ def room_member(room_id: int, token: str) -> list[RoomUser]:
             return []
 
 
+def room_start_live(room_id: int) -> None:
+    """ルームのライブを開始する"""
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE `room` SET started = 1 WHERE room_id = :room_id"),
+            {"room_id": room_id},
+        )
+
+
 def _is_user_host(conn, room_id: int, token: str) -> bool:
     result = conn.execute(
         text(
