@@ -13,13 +13,20 @@ CREATE TABLE `user` (
 
 
 CREATE TABLE `room` (
-  `id` bigint not null AUTO_INCREMENT primary key,
+  `room_id` bigint not null AUTO_INCREMENT primary key,
   `live_id` bigint not null,
-  `owner` bigint not null
+  `select_difficulty`bigint not null,
+  `status` bigint not null,
+  `owner` varchar(255) DEFAULT NULL,
+  UNIQUE KEY `room_id` (`room_id`)
 );
 
 CREATE TABLE `room_member` (
-  `id` bigint not null AUTO_INCREMENT primary key,
-  `room_id` bigint not null,
-  `user_id` bigint not null
+  `room_id` bigint not null AUTO_INCREMENT primary key,
+  `user1` varchar(255) DEFAULT NULL,
+  `user2` varchar(255) DEFAULT NULL,
+  `user3` varchar(255) DEFAULT NULL,
+  `user4` varchar(255) DEFAULT NULL,
+  `owner` varchar(255) DEFAULT NULL,
+  UNIQUE KEY `room_id` (`room_id`)
 );
