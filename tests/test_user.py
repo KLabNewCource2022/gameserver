@@ -37,5 +37,6 @@ def test_update_user():
     assert response.status_code == 200
 
     user = model.get_user_by_token(token)
+    assert user is not None
     assert user.name == "update_test2"
     assert user.leader_card_id == 1000

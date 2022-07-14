@@ -3,7 +3,6 @@ import uuid
 from enum import Enum, IntEnum
 from typing import Optional
 
-from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
@@ -58,10 +57,50 @@ def get_user_by_token(token: str) -> Optional[SafeUser]:
 
 
 def update_user(token: str, name: str, leader_card_id: int) -> None:
-    # このコードを実装してもらう
     with engine.begin() as conn:
-        user = get_user_by_token(token)
+        user = _get_user_by_token(conn, token)
+        if user is None:
+            raise Exception("invalid user token")
         conn.execute(
             text("update user set name=:name, leader_card_id=:leader where id=:id"),
             {"name": name, "leader": leader_card_id, "id": user.id},
         )
+
+
+class WaitRoomStatus(IntEnum):
+    waiting = 1
+    live_start = 2
+    dissolution = 3
+
+
+class LiveDifficulty(IntEnum):
+    normal = 1
+    hard = 2
+
+
+def create_room(token: str, live_id: int, difficulty: LiveDifficulty) -> int:
+    with engine.begin() as conn:
+        owner = _get_user_by_token(conn, token)
+        if owner is None:
+            raise Exception("invalid user token")
+
+        result = conn.execute(
+            text(
+                "insert into room (live_id, owner, status, member_count) values (:live_id, :owner, :status, 1)"
+            ),
+            {
+                "live_id": live_id,
+                "owner": owner.id,
+                "status": WaitRoomStatus.waiting.value,
+            },
+        )
+        room_id = result.lastrowid
+
+        result = conn.execute(
+            text(
+                "insert into room_member set room_id=:room_id, user_id=:user_id, difficulty=:difficulty"
+            ),
+            {"room_id": room_id, "user_id": owner.id, "difficulty": difficulty.value},
+        )
+
+        return room_id
