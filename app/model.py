@@ -228,12 +228,14 @@ def room_status(room_id: int) -> WaitRoomStatus:
             return WaitRoomStatus.Waiting
 
 
+def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
+    conn.execute(
+        text("DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"),
+        {"room_id": room_id, "token": token},
+    )
+
+
 def leave_room(room_id: int, token: str) -> None:
     """ルームから退場する"""
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"
-            ),
-            {"room_id": room_id, "token": token},
-        )
+        _delete_user_from_room_member(conn, room_id, token)
