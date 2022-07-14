@@ -1,7 +1,7 @@
 import json
 import uuid
 from enum import Enum, IntEnum
-from typing import Optional
+from typing import Callable, Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -153,6 +153,20 @@ def find_room(live_id: int) -> list[RoomInfo]:
             return [RoomInfo.from_orm(row) for row in result.all()]
         except NoResultFound:
             return []
+
+
+def find_enable_room(live_id: int) -> list[RoomInfo]:
+    """すべての有効な( = 解散されていない)ルームを検索する"""
+    all_rooms: list[RoomInfo] = find_room(live_id)
+    f: Callable[[RoomInfo], bool] = lambda x: x.joined_user_count > 0
+    return [room_info for room_info in all_rooms if f(room_info)]
+
+
+def find_joinable_room(live_id: int) -> list[RoomInfo]:
+    """すべての入室可能なルームを検索する"""
+    all_rooms: list[RoomInfo] = find_enable_room(live_id)
+    f: Callable[[RoomInfo], bool] = lambda x: x.joined_user_count < x.max_user_count
+    return [room_info for room_info in all_rooms if f(room_info)]
 
 
 def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomResult:

@@ -103,10 +103,7 @@ class RoomListResponse(BaseModel):
 @app.post("/room/list", response_model=RoomListResponse)
 def room_list(req: RoomListRequest):
     """入場可能なルーム一覧を取得"""
-    room_list: list[RoomInfo] = model.find_room(req.live_id)
-    room_info_list = [
-        room_info for room_info in room_list if room_info.joined_user_count > 0
-    ]
+    room_info_list: list[RoomInfo] = model.find_enable_room(req.live_id)
     return RoomListResponse(room_info_list=room_info_list)
 
 
