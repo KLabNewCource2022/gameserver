@@ -125,7 +125,7 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
-def create_room(live_id: int, difficulty: LiveDifficulty) -> int:
+def create_room(live_id: int) -> int:
     """ルームを作成する"""
     with engine.begin() as conn:
         result = conn.execute(
@@ -134,7 +134,7 @@ def create_room(live_id: int, difficulty: LiveDifficulty) -> int:
                 "(live_id, max_user_count) "
                 "VALUES (:live_id, 4)"
             ),
-            {"live_id": live_id, "difficulty": difficulty.value},
+            {"live_id": live_id},
         )
     return result.lastrowid
 
