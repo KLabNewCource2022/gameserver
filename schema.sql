@@ -12,6 +12,8 @@ DROP TABLE IF EXISTS `room`;
 CREATE TABLE `room` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `live_id` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `host_id` int DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
 

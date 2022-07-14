@@ -17,7 +17,6 @@ async def root():
     return {"message": "Hello World"}
 
 
-
 # User APIs
 
 
@@ -46,12 +45,24 @@ class RoomListResquest(BaseModel):
 class RoomListResponse(BaseModel):
     room_info_list: list[RoomInfo]
 
+
 class RoomJoinRequest(BaseModel):
     room_id: int
     select_difficulty: LiveDifficulty
 
+
 class RoomJoinResponse(BaseModel):
     join_room_result: JoinRoomResult
+
+
+class RoomWaitRequest(BaseModel):
+    room_id: int
+
+
+class RoomWaitResponse(BaseModel):
+    status: WaitRoomStatus
+    room_user_list: list[RoomUser]
+
 
 @app.post("/user/create", response_model=UserCreateResponse)
 def user_create(req: UserCreateRequest):
@@ -108,8 +119,17 @@ def RoomList(req: RoomListResquest):
     print(infolist)
     return RoomListResponse(room_info_list=infolist)
 
-# リストを返す
+
+# 部屋に入る
 @app.post("/room/join", response_model=RoomJoinResponse)
-def RoomJoin(req: RoomJoinRequest,token: str = Depends(get_auth_token)):
+def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
     result = try_join(room_id=req.room_id, token=token)
     return RoomJoinResponse(join_room_result=result)
+
+
+# 待機
+@app.post("/room/wait", response_model=RoomJoinResponse)
+def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
+    users = get_join_users(req.room_id)
+    status = get_room_status(req.room_id)
+    return RoomWaitResponse(status.value, users)
