@@ -116,18 +116,15 @@ class ResultUser(BaseModel):
 def create_room(token: str, live_id: int, select_difficulty: int) -> int:
     with engine.begin() as conn:
         # create new room
-        conn.execute(
+        result = conn.execute(
             text(
                 "INSERT INTO room (live_id, started, joined_user_count, max_user_count) VALUES (:live_id, :started, :joined_user_count, :max_user_count)"
             ),
             {"live_id": live_id, "started": 0, "joined_user_count": 1, "max_user_count": 4},
         )
 
-        # get the new room_id to return
-        result = conn.execute(text("select max(room_id) as room_id from room"))
-
-        roomId = result.one()
-
+        roomId = result.lastrowid
+    
         # insert new row into room_member as host
         user = _get_user_by_token(conn, token)
         conn.execute(
@@ -244,12 +241,29 @@ def wait_room(token: str, room_id: int):
 
 def start_room(token: str, room_id: int):
     with engine.begin() as conn:
-        # start room
+        # start room, set started = 1
         conn.execute(
             text(
                 "update room set started = 1 where room_id = :room_id"
             ),
             {
                 "room_id": room_id
+            },
+        )
+
+
+def end_room(token: str, room_id: int, judge_count_list: list[int], score: int):
+    with engine.begin() as conn:
+        # save scores into room_member
+        user_id = _get_user_by_token(conn, token).id
+        conn.execute(
+            text(
+                "update room_member set judge_count_list = :judge_count_list, score = :score where room_id = :room_id and user_id = :user_id"
+            ),
+            {
+                "judge_count_list": judge_count_list[0],
+                "score": score,
+                "room_id": room_id,
+                "user_id": user_id
             },
         )
