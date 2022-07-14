@@ -8,6 +8,7 @@ from . import model
 from .model import (
     JoinRoomResult,
     LiveDifficulty,
+    ResultUser,
     RoomInfo,
     RoomUser,
     SafeUser,
@@ -89,7 +90,7 @@ class CreateRoomResponse(BaseModel):
 @app.post("/room/create", response_model=CreateRoomResponse)
 def room_create(req: CreateRoomRequest, token: str = Depends(get_auth_token)):
     """create room"""
-    # print(req)
+    #print(req)
     id = model.create_room(token, req.live_id, req.select_difficulty)
     return CreateRoomResponse(room_id=id)
 
@@ -106,9 +107,9 @@ class RoomListResponse(BaseModel):
 
 
 @app.post("/room/list", response_model=RoomListResponse)
-def room_list(req: RoomListRequest, token: str = Depends(get_auth_token)):
+def room_list(req: RoomListRequest):
     """get active rooms"""
-    room_list = model.list_room(token, req.live_id)
+    room_list = model.list_room(req.live_id)
     return RoomListResponse(room_info_list=room_list)
 
 
@@ -186,3 +187,39 @@ def room_end(req: RoomEndRequest, token: str = Depends(get_auth_token)):
     """end room"""
     model.end_room(token, req.room_id, req.judge_count_list, req.score)
     return RoomEndResponse()
+
+
+# ------------------- ROOM RESULT --------------------------
+
+
+class RoomResultRequest(BaseModel):
+    room_id: int
+
+
+class RoomResultResponse(BaseModel):
+    result_user_list: list[ResultUser]
+
+
+@app.post("/room/result", response_model=RoomResultResponse)
+def room_result(req: RoomResultRequest):
+    """result room"""
+    result = model.result_room(req.room_id)
+    return RoomResultResponse(result_user_list=result)
+
+
+# ------------------- ROOM LEAVE --------------------------
+
+
+class RoomLeaveRequest(BaseModel):
+    room_id: int
+
+
+class RoomLeaveResponse(BaseModel):
+    pass
+
+
+@app.post("/room/leave", response_model=RoomLeaveResponse)
+def room_leave(req: RoomLeaveRequest, token: str = Depends(get_auth_token)):
+    """leave room"""
+    model.leave_room(token, req.room_id)
+    return RoomLeaveResponse()

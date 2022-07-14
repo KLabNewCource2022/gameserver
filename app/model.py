@@ -1,7 +1,8 @@
 import json
+import string
 import uuid
 from enum import Enum, IntEnum
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -120,11 +121,16 @@ def create_room(token: str, live_id: int, select_difficulty: int) -> int:
             text(
                 "INSERT INTO room (live_id, started, joined_user_count, max_user_count) VALUES (:live_id, :started, :joined_user_count, :max_user_count)"
             ),
-            {"live_id": live_id, "started": 0, "joined_user_count": 1, "max_user_count": 4},
+            {
+                "live_id": live_id,
+                "started": 0,
+                "joined_user_count": 1,
+                "max_user_count": 4,
+            },
         )
 
         roomId = result.lastrowid
-    
+
         # insert new row into room_member as host
         user = _get_user_by_token(conn, token)
         conn.execute(
@@ -132,26 +138,35 @@ def create_room(token: str, live_id: int, select_difficulty: int) -> int:
                 "INSERT INTO room_member (room_id, user_id, is_host, select_difficulty) VALUES (:room_id, :user_id, :is_host, :select_difficulty)"
             ),
             {
-                "room_id": roomId.room_id,
+                "room_id": roomId,
                 "user_id": user.id,
                 "is_host": 1,
                 "select_difficulty": select_difficulty,
             },
         )
 
-    return roomId.room_id
+    return roomId
 
 
-def list_room(token: str, live_id: int) -> List[RoomInfo]:
-    # get all active room
+def list_room(live_id: int) -> List[RoomInfo]:
+    # get all rooms
     with engine.begin() as conn:
-        result = conn.execute(text("select * from room"))
+        result: Any
+        if live_id == 0:
+            result = conn.execute(text("select * from room"))
+        else:
+            result = conn.execute(text("select * from room where live_id = :live_id"), {"live_id": live_id})
 
     # populate array with every active room and return it
     roomInfo: List[RoomInfo] = []
     try:
         for row in result:
-            ri = RoomInfo(room_id=row.room_id, live_id=row.live_id, joined_user_count=row.joined_user_count, max_user_count=row.max_user_count)
+            ri = RoomInfo(
+                room_id=row.room_id,
+                live_id=row.live_id,
+                joined_user_count=row.joined_user_count,
+                max_user_count=row.max_user_count,
+            )
             roomInfo.append(ri)
     except NoResultFound:
         return roomInfo
@@ -199,12 +214,8 @@ def wait_room(token: str, room_id: int):
     with engine.begin() as conn:
         # get room status
         result_status = conn.execute(
-            text(
-                "select started from room where room_id = :room_id"
-            ),
-            {
-                "room_id": room_id
-            },
+            text("select started from room where room_id = :room_id"),
+            {"room_id": room_id},
         )
 
         # init room wait status, return if disbanded
@@ -220,9 +231,7 @@ def wait_room(token: str, room_id: int):
             text(
                 "select user.id, user.name, user.leader_card_id, room_member.select_difficulty, room_member.is_host from user right join room_member on user.id = room_member.user_id where room_id = :room_id"
             ),
-            {
-                "room_id": room_id
-            },
+            {"room_id": room_id},
         )
 
         # init user list
@@ -231,7 +240,14 @@ def wait_room(token: str, room_id: int):
         try:
             for row in user_list:
                 me = 1 if my_id == row.id else 0
-                u = RoomUser(user_id=row.id, name=row.name, leader_card_id=row.leader_card_id, select_difficulty=row.select_difficulty, is_me=me, is_host=row.is_host)
+                u = RoomUser(
+                    user_id=row.id,
+                    name=row.name,
+                    leader_card_id=row.leader_card_id,
+                    select_difficulty=row.select_difficulty,
+                    is_me=me,
+                    is_host=row.is_host,
+                )
                 user_list.append(u)
         except NoResultFound:
             return waitStatus, user_list
@@ -243,12 +259,8 @@ def start_room(token: str, room_id: int):
     with engine.begin() as conn:
         # start room, set started = 1
         conn.execute(
-            text(
-                "update room set started = 1 where room_id = :room_id"
-            ),
-            {
-                "room_id": room_id
-            },
+            text("update room set started = 1 where room_id = :room_id"),
+            {"room_id": room_id},
         )
 
 
@@ -256,14 +268,79 @@ def end_room(token: str, room_id: int, judge_count_list: list[int], score: int):
     with engine.begin() as conn:
         # save scores into room_member
         user_id = _get_user_by_token(conn, token).id
+        judges = ",".join(list(map(str, judge_count_list)))
         conn.execute(
             text(
                 "update room_member set judge_count_list = :judge_count_list, score = :score where room_id = :room_id and user_id = :user_id"
             ),
             {
-                "judge_count_list": judge_count_list[0],
+                "judge_count_list": judges,
                 "score": score,
                 "room_id": room_id,
-                "user_id": user_id
+                "user_id": user_id,
             },
+        )
+
+
+def result_room(room_id: int) -> list[ResultUser]:
+    with engine.begin() as conn:
+        # get scores from users
+        result = conn.execute(
+            text(
+                "select user_id, judge_count_list, score from room_member where room_id = :room_id"
+            ),
+            {"room_id": room_id},
+        )
+
+        user_list: list[ResultUser] = []
+        try:
+            for row in result:
+                strlist = row.judge_count_list.split(",")
+                print(strlist)
+                judges = [int(x) for x in strlist]
+                print(judges)
+                u = ResultUser(
+                    user_id=row.user_id, judge_count_list=judges, score=row.score
+                )
+                user_list.append(u)
+        except NoResultFound:
+            return user_list
+
+        return user_list
+
+
+def leave_room(token: str, room_id: int) -> None:
+    with engine.begin() as conn:
+        user_id = _get_user_by_token(conn, token).id
+        # check if user is host
+        result = conn.execute(
+            text(
+                "select is_host from room_member where room_id=:room_id and user_id=:user_id"
+            ),
+            {"room_id": room_id, "user_id": user_id},
+        )
+
+        # if player is host, remove every player and disband room
+        if result.one().is_host == 1:
+            conn.execute(
+                text("delete from room_member where room_id=:room_id"),
+                {
+                    "room_id": room_id,
+                },
+            )
+            conn.execute(
+                text("delete from room where room_id=:room_id"),
+                {
+                    "room_id": room_id,
+                },
+            )
+
+            return
+
+        # remove this user from room_member
+        conn.execute(
+            text(
+                "delete from room_member where room_id=:room_id and user_id = :user_id"
+            ),
+            {"room_id": room_id, "user_id": user_id},
         )
