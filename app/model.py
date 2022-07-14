@@ -69,11 +69,14 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
             {"name": name, "leader": leader_card_id, "token": token},
         )
 
+
 # ------------------- ROOM MDOEL --------------------------
 
+
 class LiveDifficulty(Enum):
-     normal = 1
-     hard = 2
+    normal = 1
+    hard = 2
+
 
 class JoinRoomResult(Enum):
     Ok = 1
@@ -81,96 +84,93 @@ class JoinRoomResult(Enum):
     Disbanded = 3
     OtherError = 4
 
+
 class WaitRoomStatus(Enum):
     Waiting = 1
     LiveStart = 2
     Dissolution = 3
 
+
 class RoomInfo(BaseModel):
-    room_id : int
-    live_id : int
-    joined_user_count : int
-    max_user_count : int
+    room_id: int
+    live_id: int
+    joined_user_count: int
+    max_user_count: int
+
 
 class RoomUser(BaseModel):
-    user_id : int
-    name : str
-    leader_card_id : int
-    select_difficulty : int
-    is_me : int
-    is_host : int
+    user_id: int
+    name: str
+    leader_card_id: int
+    select_difficulty: int
+    is_me: int
+    is_host: int
+
 
 class ResultUser(BaseModel):
-    user_id : int
-    judge_count_list : list[int]
-    score : int
+    user_id: int
+    judge_count_list: list[int]
+    score: int
 
 
-def create_room(token : str, live_id : int, select_difficulty : int) -> int:
+def create_room(token: str, live_id: int, select_difficulty: int) -> int:
     with engine.begin() as conn:
+        # create new room
         conn.execute(
             text(
-                "INSERT INTO room (live_id, joined_user_count, max_user_count) VALUES (:live_id, :joined_user_count, :max_user_count)"
+                "INSERT INTO room (live_id, started, joined_user_count, max_user_count) VALUES (:live_id, :started, :joined_user_count, :max_user_count)"
             ),
-            {"live_id" : live_id, "joined_user_count" : 1, "max_user_count" : 4},
+            {"live_id": live_id, "started": 0, "joined_user_count": 1, "max_user_count": 4},
         )
 
-        result = conn.execute(
-            text(
-                "select max(room_id) as room_id from room"
-            )
-        )
+        # get the new room_id to return
+        result = conn.execute(text("select max(room_id) as room_id from room"))
 
         roomId = result.one()
-        user = _get_user_by_token(conn, token)
 
+        # insert new row into room_member as host
+        user = _get_user_by_token(conn, token)
         conn.execute(
             text(
                 "INSERT INTO room_member (room_id, user_id, is_host, select_difficulty) VALUES (:room_id, :user_id, :is_host, :select_difficulty)"
             ),
-            {"room_id" : roomId.room_id, "user_id" : user.id, "is_host" : 1, "select_difficulty" : select_difficulty},
+            {
+                "room_id": roomId.room_id,
+                "user_id": user.id,
+                "is_host": 1,
+                "select_difficulty": select_difficulty,
+            },
         )
 
     return roomId.room_id
 
 
-
-
-def list_room(token : str, live_id : int) -> List[RoomInfo]:
+def list_room(token: str, live_id: int) -> List[RoomInfo]:
+    # get all active room
     with engine.begin() as conn:
-        result = conn.execute(
-            text(
-                "select * from room"
-            )
-        )
+        result = conn.execute(text("select * from room"))
 
-    roomInfo : List[RoomInfo] = []
-
+    # populate array with every active room and return it
+    roomInfo: List[RoomInfo] = []
     try:
-        row = result.one()
+        for row in result:
+            ri = RoomInfo(room_id=row.room_id, live_id=row.live_id, joined_user_count=row.joined_user_count, max_user_count=row.max_user_count)
+            roomInfo.append(ri)
     except NoResultFound:
         return roomInfo
-
-    for row in result:
-        ri = RoomInfo()
-        ri.room_id = row.room_id
-        ri.live_id = row.live_id
-        ri.joined_user_count = row.joined_user_count
-        ri.max_user_count = row.max_user_count
-        roomInfo.append(ri)
 
     return roomInfo
 
 
-def join_room(token : str, room_id : int, select_difficulty : int) -> JoinRoomResult:
-
+def join_room(token: str, room_id: int, select_difficulty: int) -> JoinRoomResult:
     with engine.begin() as conn:
+        # check if room can be joined
         user = _get_user_by_token(conn, token)
         result = conn.execute(
             text(
                 "select count(*) as players from room_member where room_id = :room_id"
             ),
-            {"room_id" : room_id}
+            {"room_id": room_id},
         )
 
         try:
@@ -182,11 +182,61 @@ def join_room(token : str, room_id : int, select_difficulty : int) -> JoinRoomRe
         except NoResultFound:
             return JoinRoomResult.OtherError
 
+        # join room (update the room_member table)
         conn.execute(
             text(
                 "INSERT INTO room_member (room_id, user_id, is_host, select_difficulty) VALUES (:room_id, :user_id, :is_host, :select_difficulty)"
             ),
-            {"room_id" : room_id, "user_id" : user.id, "is_host" : 0, "select_difficulty" : select_difficulty},
+            {
+                "room_id": room_id,
+                "user_id": user.id,
+                "is_host": 0,
+                "select_difficulty": select_difficulty,
+            },
         )
 
     return JoinRoomResult.Ok
+
+
+def wait_room(token: str, room_id: int):
+    with engine.begin() as conn:
+        # get room status
+        result_status = conn.execute(
+            text(
+                "select started from room where room_id = :room_id"
+            ),
+            {
+                "room_id": room_id
+            },
+        )
+
+        # init room wait status, return if disbanded
+        waitStatus = WaitRoomStatus.Waiting
+        try:
+            if result_status.one().started == 1:
+                waitStatus = WaitRoomStatus.LiveStart
+        except NoResultFound:
+            return WaitRoomStatus.Dissolution, []
+
+        # get user list
+        result_user = conn.execute(
+            text(
+                "select user.id, user.name, user.leader_card_id, room_member.select_difficulty, room_member.is_host from user right join room_member on user.id = room_member.user_id where room_id = :room_id"
+            ),
+            {
+                "room_id": room_id
+            },
+        )
+
+        # init user list
+        user_list: list[RoomUser] = []
+        my_id = _get_user_by_token(conn, token).id
+        try:
+            for row in user_list:
+                me = 1 if my_id == row.id else 0
+                u = RoomUser(user_id=row.id, name=row.name, leader_card_id=row.leader_card_id, select_difficulty=row.select_difficulty, is_me=me, is_host=row.is_host)
+                user_list.append(u)
+        except NoResultFound:
+            return waitStatus, user_list
+
+    return waitStatus, user_list
