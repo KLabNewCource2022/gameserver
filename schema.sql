@@ -25,5 +25,7 @@ CREATE TABLE `room_member` (
   `select_difficulty` int DEFAULT NULL,
   `token` varchar(255) DEFAULT NULL,
   `is_host` bit DEFAULT 0,
+  `judge_count_list` varchar(255) DEFAULT NULL,
+  `score` bigint DEFAULT NULL,
   PRIMARY KEY (`member_id`)
 );
