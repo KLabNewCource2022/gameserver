@@ -21,8 +21,8 @@ CREATE TABLE `room` (
 DROP TABLE IF EXISTS `room_member`;
 CREATE TABLE `room_member` (
   `member_id` bigint NOT NULL AUTO_INCREMENT,
-  `room_id` int NOT NULL,
-  `user_id` int NOT NULL,
+  `room_id` bigint NOT NULL,
+  `user_id` bigint NOT NULL,
   `is_host` int NOT NULL,
   `select_difficulty` int NOT NULL,
   `judge_count_list` varchar(255),
