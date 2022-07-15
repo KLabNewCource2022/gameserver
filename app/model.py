@@ -443,3 +443,5 @@ def leave_room(room_id: int, token: str) -> None:
             )
             if next_host_token is not None:
                 _set_user_host(conn, room_id, next_host_token)
+            else:
+                _close_room(conn, room_id)
