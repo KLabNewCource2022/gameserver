@@ -236,7 +236,7 @@ def get_join_users(room_id: int, token: str) -> list[RoomUser]:
 
         result = conn.execute(
             text(
-                "SELECT * FROM room_member WHERE room_id=:room_id LEFT INNER JOIN user on room_member.user_id = user.id"
+                "SELECT * FROM room_member JOIN user on room_member.user_id = user.id WHERE room_id=:room_id"
             ),
             dict(room_id=room_id),
         )
@@ -250,8 +250,8 @@ def get_join_users(room_id: int, token: str) -> list[RoomUser]:
                         name=row.name,
                         leader_card_id=row.leader_card_id,
                         select_difficulty=row.select_difficulty,
-                        is_me=row.user_id == me_id,
-                        is_host=me_id == room.host_id,
+                        is_me= row.user_id == me_id,
+                        is_host= me_id == room.host_id,
                     )
                 )
         except NoResultFound:
@@ -274,3 +274,14 @@ def get_room_status(room_id: int) -> WaitRoomStatus:
     with engine.begin() as conn:
         room = _get_room(conn, room_id)
         return WaitRoomStatus(room.status)
+
+def start_room(room_id: int, token: str):
+    with engine.begin() as conn:
+        user =  _get_user_by_token(conn,token)
+        room = _get_room(conn,room_id)
+
+        if(room.host_id == user.id):
+            result = conn.execute(
+                text("UPDATE room SET status=:status WHERE id=:room_id"),
+                dict(status=WaitRoomStatus.LiveStart.value,room_id = room_id),
+            )

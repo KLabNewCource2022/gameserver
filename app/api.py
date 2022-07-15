@@ -63,6 +63,12 @@ class RoomWaitResponse(BaseModel):
     status: WaitRoomStatus
     room_user_list: list[RoomUser]
 
+class RoomStartRequest(BaseModel):
+    room_id: int
+
+
+class RoomStartResponse(BaseModel):
+    pass
 
 @app.post("/user/create", response_model=UserCreateResponse)
 def user_create(req: UserCreateRequest):
@@ -128,8 +134,14 @@ def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
 
 
 # 待機
-@app.post("/room/wait", response_model=RoomJoinResponse)
-def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
-    users = get_join_users(req.room_id)
+@app.post("/room/wait", response_model=RoomWaitResponse)
+def RoomJoin(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
+    users = get_join_users(req.room_id,token)
     status = get_room_status(req.room_id)
-    return RoomWaitResponse(status.value, users)
+    return RoomWaitResponse(status = status.value,room_user_list = users)
+
+# スタート
+@app.post("/room/start", response_model=RoomStartResponse)
+def RoomJoin(req: RoomStartRequest, token: str = Depends(get_auth_token)):
+    start_room(req.room_id,token)
+    return RoomStartResponse()
