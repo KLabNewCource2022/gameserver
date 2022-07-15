@@ -172,12 +172,11 @@ def RoomStart(req: RoomStartRequest, token: str = Depends(get_auth_token)):
 @app.post("/room/end", response_model=RoomEndResponse)
 def RoomEnd(req: RoomEndRequest, token: str = Depends(get_auth_token)):
     EndUser(req.room_id, req.judge_count_list, req.score, token)
-    return RoomStartResponse()
+    return RoomEndResponse()
 
 
 # リザルト
 @app.post("/room/result", response_model=RoomResultResponse)
 def RoomResult(req: RoomResultRequest):
     result_users = get_result(req.room_id)
-    print(f"{result_users}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    return result_users
+    return RoomResultResponse(result_user_list=result_users)
