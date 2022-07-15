@@ -1,15 +1,14 @@
 from enum import Enum
-from re import I
 from pydantic import BaseModel
 
 
-class LiveDiffculty(Enum):
+class LiveDiffculty(int, Enum):
     '''難易度'''
     normal = 1
     hard = 2
 
 
-class JoinRoomResult(Enum):
+class JoinRoomResult(int, Enum):
     '''加入するルームの状態'''
     Ok = 1
     RoomFull = 2
@@ -106,3 +105,21 @@ class RoomEndRequest(BaseModel):
     room_id: int
     judge_count_list: list[int]
     score: int
+
+
+class RoomResultRequest(BaseModel):
+    room_id: int
+
+
+class RoomResultResponse(BaseModel):
+    result_user_list: list[ResultUser]
+
+    class Config:
+        orm_mode = True
+
+
+class RoomLeaveRequest(BaseModel):
+    room_id: int
+
+    class Config:
+        orm_mode = True

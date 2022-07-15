@@ -1,12 +1,14 @@
+from calendar import leapdays
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+from pyparsing import empty
 
 from . import model
 from .model import SafeUser
 
 import room.common
-from room.model import create_room, end_room, join_room, list_room, start_room, wait_room
+from room.model import create_room, end_room, join_room, leave_room, list_room, result_room, start_room, wait_room
 
 app = FastAPI()
 
@@ -100,6 +102,18 @@ def room_start(req: room.common.RoomStartRequest):
 
 
 @app.post("/room/end", response_model=Empty)
-def room_end(req: room.common.RoomEndRequest,token:str = Depends(get_auth_token)):
+def room_end(req: room.common.RoomEndRequest, token:str = Depends(get_auth_token)):
     end_room(req.room_id,req.judge_count_list,req.score,user_me(token))
+    return {}
+
+
+@app.post("/room/result", response_model=room.common.RoomResultResponse)
+def room_result(req: room.common.RoomResultRequest, token:str = Depends(get_auth_token)):
+    result = result_room(req.room_id,user_me(token))
+    return result
+
+
+@app.post("/room/leave", response_model=Empty)
+def room_leave(req: room.common.RoomLeaveRequest, token:str = Depends(get_auth_token)):
+    leave_room(req.room_id, user_me(token))
     return {}
