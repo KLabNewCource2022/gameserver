@@ -154,6 +154,22 @@ def create_room(live_id: int, token: str) -> int:
     return result.lastrowid
 
 
+def create_room_and_join(live_id: int, difficulty: LiveDifficulty, token: str) -> int:
+    """ルームを作成し、入室する"""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "INSERT INTO `room` "
+                "(live_id, max_user_count, host_token) "
+                "VALUES (:live_id, 4, :token)"
+            ),
+            {"live_id": live_id, "token": token},
+        )
+        room_id: int = result.lastrowid
+        _join_room(conn, room_id, difficulty, token)
+    return room_id
+
+
 def find_room(live_id: int) -> list[RoomInfo]:
     """すべてのルームを検索する"""
     with engine.begin() as conn:
