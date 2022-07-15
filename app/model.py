@@ -308,6 +308,6 @@ def EndUser(room_id: int, judge_count_list: list[int], score: int, token):
                 judge_4=judge_count_list[4],
                 score=score,
                 room_id=room_id,
-                user_id=user,
+                user_id=user.id,
             ),
         )
