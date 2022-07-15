@@ -87,7 +87,7 @@ class RoomCreateResponse(BaseModel):
 @app.post("/room/create", response_model=RoomCreateResponse)
 def room_create(req: RoomCreateRequest, token: str = Depends(get_auth_token)):
     """ルームを新規で建てる。"""
-    room_id: int = model.create_room(req.live_id, req.select_difficulty)
+    room_id: int = model.create_room(req.live_id)
     model.join_room(room_id, req.select_difficulty, token)
     return RoomCreateResponse(room_id=room_id)
 
@@ -103,10 +103,7 @@ class RoomListResponse(BaseModel):
 @app.post("/room/list", response_model=RoomListResponse)
 def room_list(req: RoomListRequest):
     """入場可能なルーム一覧を取得"""
-    room_list = model.find_room(req.live_id)
-    room_info_list = [
-        RoomInfo.from_orm(row) for row in room_list if row.joined_user_count and row.joined_user_count > 0
-    ]
+    room_info_list: list[RoomInfo] = model.find_enable_room(req.live_id)
     return RoomListResponse(room_info_list=room_info_list)
 
 
@@ -136,9 +133,11 @@ class RoomWaitResponse(BaseModel):
 
 
 @app.post("/room/wait", response_model=RoomWaitResponse)
-def room_wait(req: RoomWaitRequest):
+def room_wait(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
     """ルーム待機中（ポーリング）。APIの結果でゲーム開始がわかる。 クライアントはn秒間隔で投げる想定。"""
-    return RoomWaitResponse(status=WaitRoomStatus.Waiting, room_user_list=[])
+    status: WaitRoomStatus = model.room_status(req.room_id)
+    room_user_list: list[RoomUser] = model.room_member(req.room_id, token)
+    return RoomWaitResponse(status=status, room_user_list=room_user_list)
 
 
 class RoomStartRequest(BaseModel):
@@ -148,6 +147,7 @@ class RoomStartRequest(BaseModel):
 @app.post("/room/start", response_model=Empty)
 def room_start(req: RoomStartRequest):
     """ルームのライブ開始。部屋のオーナーがたたく。"""
+    model.room_start_live(req.room_id)
     return {}
 
 
@@ -158,8 +158,9 @@ class RoomEndRequest(BaseModel):
 
 
 @app.post("/room/end", response_model=Empty)
-def room_end(req: RoomEndRequest):
+def room_end(req: RoomEndRequest, token: str = Depends(get_auth_token)):
     """ルームのライブ終了時リクエスト。ゲーム終わったら各人が叩く。"""
+    model.set_room_user_result(req.room_id, req.judge_count_list, req.score, token)
     return {}
 
 
@@ -174,7 +175,8 @@ class RoomResultResponse(BaseModel):
 @app.post("/room/result", response_model=RoomResultResponse)
 def room_result(req: RoomResultRequest):
     """ルーム待機中（ポーリング）。APIの結果でゲーム開始がわかる。 クライアントはn秒間隔で投げる想定。"""
-    return RoomResultResponse(result_user_list=[])
+    result_user_list: list[ResultUser] = model.room_member_result(req.room_id)
+    return RoomResultResponse(result_user_list=result_user_list)
 
 
 class RoomLeaveRequest(BaseModel):
@@ -182,6 +184,7 @@ class RoomLeaveRequest(BaseModel):
 
 
 @app.post("/room/leave", response_model=Empty)
-def room_leave(req: RoomLeaveRequest):
+def room_leave(req: RoomLeaveRequest, token: str = Depends(get_auth_token)):
     """ルーム退出リクエスト。オーナーも /room/join で参加した参加者も実行できる。"""
+    model.leave_room(req.room_id, token)
     return {}
