@@ -126,6 +126,6 @@ class RoomStartResponse(BaseModel):
     pass
 
 @app.post("/room/start",response_model= RoomStartResponse)
-def room_start(req:RoomStartRequest,token:str):
+def room_start(req:RoomStartRequest,token:str = Depends(get_auth_token)):
     model.start_room(token,req.room_id)
     return RoomStartResponse()
