@@ -23,7 +23,7 @@ CREATE TABLE `room_member` (
   `room_id` int DEFAULT NULL,
   `user_id` int DEFAULT NULL,
   `select_difficulty` int DEFAULT NULL,
-  `is_end` int DEFAULT NULL,
+  `is_end` int DEFAULT 0,
   `judge_0` int DEFAULT NULL,
   `judge_1` int DEFAULT NULL,
   `judge_2` int DEFAULT NULL,

@@ -132,7 +132,7 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
 @app.post("/room/create", response_model=RoomCreateResponse)
 def RoomCreate(req: RoomCreateResquest, token: str = Depends(get_auth_token)):
     room_id = model.create_room(
-        token, live_id=req.live_id, select_difficulty=req.select_difficulty.numerator
+        token, live_id=req.live_id, select_difficulty=req.select_difficulty
     )
     return RoomCreateResponse(room_id=room_id)
 
@@ -149,7 +149,9 @@ def RoomList(req: RoomListResquest):
 # 部屋に入る
 @app.post("/room/join", response_model=RoomJoinResponse)
 def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
-    result = try_join(room_id=req.room_id, token=token)
+    result = try_join(
+        room_id=req.room_id, token=token, select_difficulty=req.select_difficulty
+    )
     return RoomJoinResponse(join_room_result=result)
 
 

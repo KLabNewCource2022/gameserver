@@ -1,6 +1,7 @@
 import json
 import uuid
 from enum import Enum, IntEnum
+from pickle import TRUE
 from typing import Optional
 
 from fastapi import HTTPException
@@ -134,7 +135,7 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
-def create_room(token: str, live_id: int, select_difficulty: int) -> int:
+def create_room(token: str, live_id: int, select_difficulty: LiveDifficulty) -> int:
     with engine.begin() as conn:
         room_id = _create_room(conn=conn, live_id=live_id, token=token)
         _join_room(
@@ -155,7 +156,7 @@ def _create_room(conn, live_id: int, token: str) -> int:
     return result.lastrowid
 
 
-def _join_room(conn, token: str, room_id: int, select_difficulty: int):
+def _join_room(conn, token: str, room_id: int, select_difficulty: LiveDifficulty):
     # ユーザid取得
     user_id = _get_user_by_token(conn=conn, token=token).id
     result = conn.execute(
@@ -165,7 +166,7 @@ def _join_room(conn, token: str, room_id: int, select_difficulty: int):
         {
             "room_id": room_id,
             "user_id": user_id,
-            "select_difficulty": select_difficulty,
+            "select_difficulty": select_difficulty.value,
         },
     )
 
@@ -173,9 +174,9 @@ def _join_room(conn, token: str, room_id: int, select_difficulty: int):
 def find_room(live_id: int) -> list[RoomInfo]:
     with engine.begin() as conn:
         if live_id == 0:
-            where = ""
+            where = " WHERE room.status <> :status"
         else:
-            where = " WHERE live_id=:live_id"
+            where = " WHERE room.status<>:status AND live_id=:live_id"
 
         result: CursorResult = conn.execute(
             text(
@@ -184,7 +185,7 @@ def find_room(live_id: int) -> list[RoomInfo]:
                 on room.id = Cnt.room_id"""
                 + where
             ),
-            {"live_id": live_id},
+            {"live_id": live_id, "status": WaitRoomStatus.Dissolution.value},
         )
         try:
             roomrows = result.all()
@@ -208,26 +209,28 @@ def find_room(live_id: int) -> list[RoomInfo]:
 def _is_Joinable(conn, room_id: int) -> JoinRoomResult:
     result = conn.execute(
         text(
-            "SELECT COUNT(room_id) as joined_user_count FROM room_member GROUP BY room_id WHERE room_id=:room_id"
+            "SELECT COUNT(room_id) as joined_user_count FROM room_member  WHERE room_id=:room_id"
         ),
         dict(room_id=room_id),
     )
     try:
         row = result.one()
     except:
-        return JoinRoomResult.Disbanded
-
-    if row.joined_user_count < 4:
-        return JoinRoomResult.RoomFull
-    else:
         return JoinRoomResult.OtherError
 
+    if row.joined_user_count < 4:
+        return JoinRoomResult.Ok
+    else:
+        return JoinRoomResult.RoomFull
 
-def try_join(room_id, token: str) -> JoinRoomResult:
+
+def try_join(room_id, select_difficulty: LiveDifficulty, token: str) -> JoinRoomResult:
     with engine.begin() as conn:
         result = _is_Joinable(conn, room_id=room_id)
         if result == JoinRoomResult.Ok:
-            _join_room(conn, token=token, room_id=room_id)
+            _join_room(
+                conn, token=token, room_id=room_id, select_difficulty=select_difficulty
+            )
         return result
 
 
@@ -311,6 +314,21 @@ def EndUser(room_id: int, judge_count_list: list[int], score: int, token):
                 user_id=user.id,
             ),
         )
+        result = conn.execute(
+            text("SELECT is_end FROM room_member WHERE room_id=:room_id"),
+            dict(room_id=room_id),
+        )
+        try:
+            for row in result.all():
+                if row.is_end != TRUE:
+                    pass
+            result = conn.execute(
+                text("UPDATE room SET status=:status WHERE id=:room_id"),
+                dict(status=WaitRoomStatus.Dissolution.value, room_id=room_id),
+            )
+            print("aaaadasdasdadasdadasdasdsadasdadadasdsad")
+        except:
+            return
 
 
 def get_result(room_id):
