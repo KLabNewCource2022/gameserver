@@ -173,10 +173,9 @@ def create_room_and_join(live_id: int, difficulty: LiveDifficulty, token: str) -
 def find_room(live_id: int) -> list[RoomInfo]:
     """すべてのルームを検索する"""
     with engine.begin() as conn:
-        if live_id == 0:
-            query_where = ""
-        else:
-            query_where = " where live_id=:live_id"
+        query_where = " where started=0"
+        if live_id != 0:
+            query_where += " AND live_id=:live_id"
 
         result = conn.execute(
             text(
