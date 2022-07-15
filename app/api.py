@@ -87,7 +87,7 @@ class RoomCreateResponse(BaseModel):
 @app.post("/room/create", response_model=RoomCreateResponse)
 def room_create(req: RoomCreateRequest, token: str = Depends(get_auth_token)):
     """ルームを新規で建てる。"""
-    room_id: int = model.create_room(req.live_id)
+    room_id: int = model.create_room(req.live_id, token)
     model.join_room(room_id, req.select_difficulty, token)
     return RoomCreateResponse(room_id=room_id)
 

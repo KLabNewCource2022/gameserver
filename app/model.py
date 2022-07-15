@@ -125,16 +125,16 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
-def create_room(live_id: int) -> int:
+def create_room(live_id: int, token: str) -> int:
     """ルームを作成する"""
     with engine.begin() as conn:
         result = conn.execute(
             text(
                 "INSERT INTO `room` "
-                "(live_id, max_user_count) "
-                "VALUES (:live_id, 4)"
+                "(live_id, max_user_count, host_token) "
+                "VALUES (:live_id, 4, :token)"
             ),
-            {"live_id": live_id},
+            {"live_id": live_id, "token": token},
         )
     return result.lastrowid
 
@@ -216,14 +216,13 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
         conn.execute(
             text(
                 "INSERT INTO `room_member` "
-                "(room_id, select_difficulty, token, is_host) "
-                "VALUES (:room_id, :difficulty, :token, :is_host)"
+                "(room_id, select_difficulty, token) "
+                "VALUES (:room_id, :difficulty, :token)"
             ),
             {
                 "room_id": room_id,
                 "difficulty": difficulty.value,
                 "token": token,
-                "is_host": 1 if is_host else 0,
             },
         )
         # 入場OK
@@ -262,12 +261,14 @@ def room_member(room_id: int, token: str) -> list[RoomUser]:
                 "SELECT "
                 "*, id as user_id, "
                 "(token = :token) as is_me, "
-                "(is_host = 1) as is_host "
+                "(token = host_token) as is_host "
                 "FROM `user` INNER JOIN ("
-                "SELECT room_id, token as t, select_difficulty, is_host "
+                "SELECT room_id, token as t, select_difficulty "
                 "FROM `room_member` "
                 "WHERE room_id = :room_id AND score IS NULL"
-                ") as M on token = t"
+                ") as M on token = t INNER JOIN ("
+                "SELECT room_id as r, host_token FROM `room`"
+                ") as R on room_id = r"
             ),
             {"token": token, "room_id": room_id},
         )
@@ -339,8 +340,8 @@ def room_member_result(room_id: int) -> list[ResultUser]:
 def _is_user_host(conn, room_id: int, token: str) -> bool:
     result = conn.execute(
         text(
-            "SELECT * FROM `room_member` "
-            "WHERE room_id = :room_id AND token = :token AND is_host = 1"
+            "SELECT host_token FROM `room` "
+            "WHERE room_id = :room_id AND host_token = :token"
         ),
         {"room_id": room_id, "token": token},
     )
@@ -355,13 +356,13 @@ def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
     )
 
 
-def _find_first_room_client_user(conn, room_id: int) -> Optional[str]:
+def _find_first_room_client_user(conn, room_id: int, token: str) -> Optional[str]:
     result = conn.execute(
         text(
             "SELECT token FROM `room_member` "
-            "WHERE room_id = :room_id AND is_host = 0"
+            "WHERE room_id = :room_id AND token != :token"
         ),
-        {"room_id": room_id},
+        {"room_id": room_id, "token": token},
     )
     try:
         return result.one().token
@@ -371,11 +372,7 @@ def _find_first_room_client_user(conn, room_id: int) -> Optional[str]:
 
 def _set_user_host(conn, room_id: int, token: str) -> None:
     conn.execute(
-        text(
-            "UPDATE `room_member` "
-            "SET is_host = 1 "
-            "WHERE room_id = :room_id AND token = :token"
-        ),
+        text("UPDATE `room` SET host_token = :token WHERE room_id = :room_id"),
         {"room_id": room_id, "token": token},
     )
 
@@ -386,6 +383,8 @@ def leave_room(room_id: int, token: str) -> None:
         is_host = _is_user_host(conn, room_id, token)
         _delete_user_from_room_member(conn, room_id, token)
         if is_host:
-            next_host_token: Optional[str] = _find_first_room_client_user(conn, room_id)
+            next_host_token: Optional[str] = _find_first_room_client_user(
+                conn, room_id, token
+            )
             if next_host_token is not None:
                 _set_user_host(conn, room_id, next_host_token)

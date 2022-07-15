@@ -14,6 +14,7 @@ CREATE TABLE `room` (
   `live_id` int DEFAULT NULL,
   `max_user_count` int DEFAULT NULL,
   `started` bit DEFAULT 0,
+  `host_token` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`room_id`)
 );
 
@@ -23,7 +24,6 @@ CREATE TABLE `room_member` (
   `room_id` bigint NOT NULL,
   `select_difficulty` int DEFAULT NULL,
   `token` varchar(255) DEFAULT NULL,
-  `is_host` bit DEFAULT 0,
   `judge_count_list` varchar(255) DEFAULT NULL,
   `score` bigint DEFAULT NULL,
   PRIMARY KEY (`member_id`)
