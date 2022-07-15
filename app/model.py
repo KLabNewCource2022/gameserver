@@ -196,13 +196,12 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
             ),
             {"room_id": room_id},
         )
-        is_host: bool = False
         try:
             row = result.one()
             if row.joined_user_count is None:
                 # Note: create_room 直後は room_member にまだ追加されておらず joined_user_count is None となる
-                # この部屋に初めに参加する人 == ホスト
-                is_host = True
+                # Nothing to do
+                pass
             elif row.joined_user_count >= row.max_user_count:
                 # 参加者数 >= 参加上限 : 満員
                 return JoinRoomResult.RoomFull
