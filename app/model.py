@@ -19,8 +19,8 @@ class InvalidToken(Exception):
 
 # Enum
 class LiveDifficulty(IntEnum):
-    normal = 0
-    hard = 1
+    normal = 1
+    hard = 2
 
 
 class JoinRoomResult(IntEnum):
@@ -256,7 +256,7 @@ def get_join_users(room_id: int, token: str) -> list[RoomUser]:
                         leader_card_id=row.leader_card_id,
                         select_difficulty=row.select_difficulty,
                         is_me=row.user_id == me_id,
-                        is_host=me_id == room.host_id,
+                        is_host=row.id == room.host_id,
                     )
                 )
         except NoResultFound:
