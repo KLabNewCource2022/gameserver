@@ -203,7 +203,7 @@ def find_room(live_id: int) -> list[RoomInfo]:
             text(
                 "SELECT "
                 "room_id, live_id, "
-                "IFNULL(CC, 0) as joined_user_count, max_user_count "
+                "CC as joined_user_count, max_user_count "
                 "FROM room "
                 "LEFT OUTER JOIN ("
                 "SELECT "
@@ -274,7 +274,7 @@ def room_status(room_id: int) -> WaitRoomStatus:
                 "FROM `room` LEFT OUTER JOIN ("
                 "SELECT "
                 "room_id as ID, "
-                "IFNULL(COUNT(room_id), 0) as CC "
+                "COUNT(room_id) as CC "
                 "FROM room_member WHERE room_id = :room_id GROUP BY room_id"
                 ") as C on room_id = ID WHERE room_id = :room_id"
             ),
