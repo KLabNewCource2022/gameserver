@@ -1,11 +1,14 @@
-from enum import Enum
-
+from calendar import leapdays
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+from pyparsing import empty
 
 from . import model
 from .model import SafeUser
+
+import room.common
+from room.model import create_room, end_room, join_room, leave_room, list_room, result_room, start_room, wait_room
 
 app = FastAPI()
 
@@ -62,6 +65,55 @@ class Empty(BaseModel):
 @app.post("/user/update", response_model=Empty)
 def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
     """Update user attributes"""
-    # print(req)
     model.update_user(token, req.user_name, req.leader_card_id)
+    return {}
+
+
+# Room APIs
+
+@app.post("/room/create", response_model=room.common.RoomCreateResponse)
+def room_create(req: room.common.RoomCreateRequest,token:str = Depends(get_auth_token)):
+    rid = create_room(req.live_id, req.select_difficulty, user_me(token))
+    return rid
+
+
+@app.post("/room/list", response_model=room.common.RoomListResponse)
+def room_list(req: room.common.RoomListRequest):
+    room_infos = list_room(req.live_id)
+    return room_infos
+
+
+@app.post("/room/join", response_model=room.common.RoomJoinResponse)
+def room_join(req: room.common.RoomJoinRequest,token:str = Depends(get_auth_token)):
+    result = join_room(req.room_id,req.select_difficulty,user_me(token))
+    return result
+
+
+@app.post("/room/wait", response_model=room.common.RoomWaitResponse)
+def room_wait(req: room.common.RoomWaitRequest):
+    room_info = wait_room(req.room_id)
+    return room_info
+
+
+@app.post("/room/start", response_model=Empty)
+def room_start(req: room.common.RoomStartRequest,token:str = Depends(get_auth_token)):
+    start_room(req.room_id,user_me(token))
+    return {}
+
+
+@app.post("/room/end", response_model=Empty)
+def room_end(req: room.common.RoomEndRequest, token:str = Depends(get_auth_token)):
+    end_room(req.room_id,req.judge_count_list,req.score,user_me(token))
+    return {}
+
+
+@app.post("/room/result", response_model=room.common.RoomResultResponse)
+def room_result(req: room.common.RoomResultRequest):
+    result = result_room(req.room_id)
+    return result
+
+
+@app.post("/room/leave", response_model=Empty)
+def room_leave(req: room.common.RoomLeaveRequest, token:str = Depends(get_auth_token)):
+    leave_room(req.room_id, user_me(token))
     return {}
