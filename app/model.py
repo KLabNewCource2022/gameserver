@@ -145,6 +145,9 @@ def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
 
 
 def _join_room(conn, room_id: int, difficulty: LiveDifficulty, token: str) -> None:
+    joined_room_id = _joined_room_id(conn, token)
+    if joined_room_id is not None:
+        _delete_user_from_room_member(conn, joined_room_id, token)
     conn.execute(
         text(
             "INSERT INTO `room_member` "
