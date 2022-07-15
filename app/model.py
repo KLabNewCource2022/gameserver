@@ -125,6 +125,21 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
+def _join_room(conn, room_id: int, difficulty: LiveDifficulty, token: str) -> None:
+    conn.execute(
+        text(
+            "INSERT INTO `room_member` "
+            "(room_id, select_difficulty, token) "
+            "VALUES (:room_id, :difficulty, :token)"
+        ),
+        {
+            "room_id": room_id,
+            "difficulty": difficulty.value,
+            "token": token,
+        },
+    )
+
+
 def create_room(live_id: int, token: str) -> int:
     """ルームを作成する"""
     with engine.begin() as conn:
@@ -212,18 +227,7 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
             # クエリの結果が空 : その他エラー
             return JoinRoomResult.OtherError
 
-        conn.execute(
-            text(
-                "INSERT INTO `room_member` "
-                "(room_id, select_difficulty, token) "
-                "VALUES (:room_id, :difficulty, :token)"
-            ),
-            {
-                "room_id": room_id,
-                "difficulty": difficulty.value,
-                "token": token,
-            },
-        )
+        _join_room(conn, room_id, difficulty, token)
         # 入場OK
         return JoinRoomResult.OK
 
