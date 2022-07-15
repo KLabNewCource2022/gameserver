@@ -27,5 +27,5 @@ CREATE TABLE `room_member` (
   `room_id` bigint not null primary key,
   `user_id` varchar(255) default null,
   `select_difficulty` bigint not null,
-  UNIQUE KEY `room_id` (`room_id`)
+  `is_owner` boolean default null
 );

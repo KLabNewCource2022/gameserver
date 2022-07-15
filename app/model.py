@@ -7,10 +7,10 @@ from typing import Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import false, text
 from sqlalchemy.exc import NoResultFound
 
-from app.api import RoomWaitResponse
+#from app.api import RoomWaitResponse
 
 from .db import engine
 
@@ -117,7 +117,7 @@ def create_room(token: str, live_id: int, select_difficulty: LiveDifficulty) -> 
     with engine.begin() as conn:
         result = conn.execute(
             text("INSERT INTO `room` (live_id, select_difficulty, status, joined_user_count, max_user_count, owner) VALUE(:live_id,:select_difficulty,:joined_user_count,:max_user_count,:status,:owner)"),
-                {"live_id":live_id, "select_difficulty":select_difficulty.value, "status":WaitRoomStatus.Waiting.value, "joined_user_count":1, "max_user_count":4,"owner":token},
+                {"live_id":live_id, "select_difficulty":select_difficulty.value, "status":WaitRoomStatus.Waiting.value, "joined_user_count":1, "max_user_count":MAXUSERCNT,"owner":token},
             )
         # print(result)
     return result.lastrowid
@@ -165,14 +165,14 @@ def join_room(token,room_id:int ,select_difficuty:LiveDifficulty)->JoinRoomResul
         
         user_by_token = _get_user_by_token(conn,token)
         result2 = conn.execute(text
-        ("insert into `room_member` (`room_id`,`user_id`,`select_difficulty`) value(:room_id,:user_id,:select_difficulty)"),
-        {"room_id":room_id,"user_id":user_by_token.id,"select_difficulty":select_difficuty.value},
+        ("insert into `room_member` (`room_id`,`user_id`,`select_difficulty`,`is_owner`) value(:room_id,:user_id,:select_difficulty,:is_owner)"),
+        {"room_id":room_id,"user_id":user_by_token.id,"select_difficulty":select_difficuty.value,"is_owner":false},
         )
 
         return JoinRoomResult.OK.value
 
 def status_room(room_id:int)->WaitRoomStatus:
-    with engine.engine() as conn:
+    with engine.begin() as conn:
         result = conn.execute(text
         ("select `status` from `room` where `room_id` =:room_id"),
         {"room_id":room_id}
@@ -184,9 +184,34 @@ def user_list_room(token,room_id:int)->list[RoomUser]:
     with engine.begin() as conn:
         user_by_token = _get_user_by_token(conn,token)
         result = conn.execute(text
-        ("select `user_id`, `select_difficulty` from `room_member` where `room_id` =: room_id"),
+        ("select `user_id`, `select_difficulty`, `is_owner` from `room_member` where `room_id` = :room_id"),
         {"room_id":room_id}
         )
-        row = result
+        row = result.all()
+        room_user_list:list[RoomUser] = []
+        for i in row:
+            result2 = conn.execute(text
+            ("select `name`, `leader_card_id` from `user` where `user_id`=:user_id"),
+            {"user_id":i.user_id},
+            )
+            row2 = result2.one()
 
+            if(row.user_id == user_by_token.id):is_me = True
+            else:is_me = False
 
+            try:
+                room_user_list.append(
+                    RoomUser(
+                        user_id = i.user_id,
+                        name = row2.name,
+                        leader_card_id = row2.leader_card_id,
+                        select_difficulty = row.select_difficulty,
+                        is_me = is_me,
+                        is_host = row.is_owner
+                    )
+                )
+            except NoResultFound:
+                return
+        return room_user_list
+
+       
