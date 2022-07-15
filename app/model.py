@@ -243,7 +243,7 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
                 "SELECT room_id, CC as joined_user_count, max_user_count "
                 "FROM room LEFT OUTER JOIN ("
                 "SELECT room_id as ID, COUNT(room_id) as CC "
-                "FROM room_member WHERE room_id = :room_id GROUP BY room_id"
+                "FROM room_member WHERE room_id = :room_id GROUP BY room_id FOR UPDATE"
                 ") as C on room_id = ID WHERE started=0 AND room_id=:room_id"
             ),
             {"room_id": room_id},
