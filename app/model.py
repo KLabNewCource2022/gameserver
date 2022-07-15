@@ -340,6 +340,13 @@ def _is_room_all_member_send_result(conn, room_id: int) -> bool:
         return False
 
 
+def _close_room(conn, room_id: int) -> None:
+    conn.execute(
+        text("DELETE FROM room WHERE room_id = :room_id"),
+        {"room_id": room_id},
+    )
+
+
 def set_room_user_result(
     room_id: int, judge_count_list: list[int], score: int, token: str
 ) -> None:
