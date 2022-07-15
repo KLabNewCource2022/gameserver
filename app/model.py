@@ -125,6 +125,13 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
+def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
+    conn.execute(
+        text("DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"),
+        {"room_id": room_id, "token": token},
+    )
+
+
 def _join_room(conn, room_id: int, difficulty: LiveDifficulty, token: str) -> None:
     conn.execute(
         text(
@@ -378,13 +385,6 @@ def _is_user_host(conn, room_id: int, token: str) -> bool:
     )
     row = result.one_or_none()
     return row is not None
-
-
-def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
-    conn.execute(
-        text("DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"),
-        {"room_id": room_id, "token": token},
-    )
 
 
 def _find_first_room_client_user(conn, room_id: int, token: str) -> Optional[str]:
