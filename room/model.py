@@ -1,8 +1,9 @@
-from telnetlib import STATUS
+import http
 from sqlalchemy import text
 from app.db import engine
 import random
 
+from fastapi import HTTPException
 from app.model import SafeUser
 from . import common
 from sqlalchemy.exc import NoResultFound
@@ -19,6 +20,10 @@ def create_room(live_id: int, select_difficully: common.LiveDiffculty, owner:Saf
             text("INSERT INTO `room_user` (room_id,user_id,name,leader_card_id,select_difficulty,is_me,is_host) VALUES(:room_id,:user_id,:name,:leader_card_id,:select_difficulty,:is_me,:is_host)"),
             {"room_id":room_id,"user_id":owner.id,"name":owner.name,"leader_card_id":owner.leader_card_id,"select_difficulty":int(common.LiveDiffculty(select_difficully)),"is_me":True,"is_host":True}
         )
+        delete_userscore = conn.execute(
+            text("delete from `user_score` where `user_id`=:user_id"),
+            {"user_id":owner.id}
+        )
     return common.RoomCreateResponse(room_id=room_id)
 
 
@@ -27,12 +32,12 @@ def list_room(live_id: int) -> common.RoomListResponse:
     with engine.begin() as conn:
         if live_id != 0:
             result = conn.execute(
-                text("SELECT `room_id`, `live_id`, `joined_user_count` , `status`,`owner_id`,`max_user_count` FROM `room` WHERE `live_id`=:live_id"),
+                text("SELECT `room_id`, `live_id`, `joined_user_count` , `status`,`owner_id`,`max_user_count` FROM `room` WHERE `live_id`=:live_id and `status`=1 and `joined_user_count`<4"),
                 {"live_id": live_id},
             )
         elif live_id == 0:
             result = conn.execute(
-                text("SELECT `room_id`, `live_id`, `joined_user_count`, `status`,`owner_id`,`max_user_count` FROM `room`"),
+                text("SELECT `room_id`, `live_id`, `joined_user_count`, `status`,`owner_id`,`max_user_count` FROM `room` where `status`=1 and `joined_user_count`<4"),
                 {},
             )
         try:
@@ -48,15 +53,20 @@ def join_room(room_id: int,select_difficulty:common.LiveDiffculty,user:SafeUser)
             text("select `status` from `room` where room_id=:room_id"),
             {"room_id":room_id}
         )
-        if check_room_state.one() != 1:
-            return common.RoomJoinResponse(join_room_result=check_room_state.one())
+        room_state = check_room_state.one().status
+        if room_state != 1:
+            return common.RoomJoinResponse(join_room_result=room_state)
         room_user_result = conn.execute(
             text("INSERT INTO `room_user` (room_id,user_id,name,leader_card_id,select_difficulty,is_me,is_host) VALUES(:room_id,:user_id,:name,:leader_card_id,:select_difficulty,:is_me,:is_host)"),
-            {"room_id":room_id,"user_id":user.id,"name":user.name,"leader_card_id":user.leader_card_id,"select_difficulty":int(common.LiveDiffculty(select_difficully)),"is_me":True,"is_host":False}
+            {"room_id":room_id,"user_id":user.id,"name":user.name,"leader_card_id":user.leader_card_id,"select_difficulty":int(common.LiveDiffculty(select_difficulty)),"is_me":True,"is_host":False}
         )
         room_result = conn.execute(
             text("update `room` set `joined_user_count`= `joined_user_count`+1 where room_id=:room_id"),
             {"room_id":room_id}
+        )
+        delete_userscore = conn.execute(
+            text("delete from `user_score` where `user_id`=:user_id"),
+            {"user_id":user.id}
         )
         pass
     return common.RoomJoinResponse(join_room_result=1)
@@ -83,7 +93,7 @@ def wait_room(room_id: int) -> common.RoomWaitResponse:
     return common.RoomWaitResponse(status=state, room_user_list=users)
 
 
-def start_room(room_id:int) -> None:
+def start_room(room_id:int,user:SafeUser) -> None:
     with engine.begin() as conn:
         result = conn.execute(
             text("update `room` set `status`=2 WHERE `room_id`=:room_id"),
@@ -109,18 +119,15 @@ def end_room(room_id:int ,judge_count_list:list[int],score:int, user:SafeUser)->
     return None
 
 
-def result_room(room_id: int,user:SafeUser) -> common.RoomResultResponse:
+def result_room(room_id: int) -> common.RoomResultResponse:
     result_user_list = []
     with engine.begin() as conn:
         room_user_result = conn.execute(
             text("select `user_id`,`perfect`,`great`,`good`,`bad`,`miss`,`score` from `user_score` where `room_id`=:room_id"),
             {"room_id": room_id}
         )
-        delete_userscore = conn.execute(
-            text("delete from `user_score` where `user_id`=:user_id"),
-            {"user_id":user.id}
-        )
-        for row in room_user_result:
+        rows = room_user_result.all()
+        for row in rows:
             result_user_list.append(common.ResultUser(user_id=row.user_id,judge_count_list=[row.perfect,row.great,row.good,row.bad,row.miss],score=row.score))
     return common.RoomResultResponse(result_user_list=result_user_list)
 
@@ -146,7 +153,7 @@ def leave_room(room_id:int,user:SafeUser) -> None:
                 {"room_id":room_id}
             )
         # not owner
-        elif room_useramount.one()["owner_id"] != user.id:
+        else:
             delete_room_user = conn.execute(
                 text("delete from `room_user` where `user_id`=:user_id"),
                 {"user_id":user.id}

@@ -96,8 +96,8 @@ def room_wait(req: room.common.RoomWaitRequest):
 
 
 @app.post("/room/start", response_model=Empty)
-def room_start(req: room.common.RoomStartRequest):
-    start_room(req.room_id)
+def room_start(req: room.common.RoomStartRequest,token:str = Depends(get_auth_token)):
+    start_room(req.room_id,user_me(token))
     return {}
 
 
@@ -108,8 +108,8 @@ def room_end(req: room.common.RoomEndRequest, token:str = Depends(get_auth_token
 
 
 @app.post("/room/result", response_model=room.common.RoomResultResponse)
-def room_result(req: room.common.RoomResultRequest, token:str = Depends(get_auth_token)):
-    result = result_room(req.room_id,user_me(token))
+def room_result(req: room.common.RoomResultRequest):
+    result = result_room(req.room_id)
     return result
 
 
