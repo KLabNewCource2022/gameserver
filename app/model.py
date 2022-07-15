@@ -365,6 +365,8 @@ def set_room_user_result(
                 "token": token,
             },
         )
+        if _is_room_all_member_send_result(conn, room_id):
+            _close_room(conn, room_id)
 
 
 def room_member_result(room_id: int) -> list[ResultUser]:
