@@ -250,8 +250,8 @@ def get_join_users(room_id: int, token: str) -> list[RoomUser]:
                         name=row.name,
                         leader_card_id=row.leader_card_id,
                         select_difficulty=row.select_difficulty,
-                        is_me= row.user_id == me_id,
-                        is_host= me_id == room.host_id,
+                        is_me=row.user_id == me_id,
+                        is_host=me_id == room.host_id,
                     )
                 )
         except NoResultFound:
@@ -275,13 +275,35 @@ def get_room_status(room_id: int) -> WaitRoomStatus:
         room = _get_room(conn, room_id)
         return WaitRoomStatus(room.status)
 
+
 def start_room(room_id: int, token: str):
     with engine.begin() as conn:
-        user =  _get_user_by_token(conn,token)
-        room = _get_room(conn,room_id)
+        user = _get_user_by_token(conn, token)
+        room = _get_room(conn, room_id)
 
-        if(room.host_id == user.id):
+        if room.host_id == user.id:
             result = conn.execute(
                 text("UPDATE room SET status=:status WHERE id=:room_id"),
-                dict(status=WaitRoomStatus.LiveStart.value,room_id = room_id),
+                dict(status=WaitRoomStatus.LiveStart.value, room_id=room_id),
             )
+
+
+def EndUser(room_id: int, judge_count_list: list[int], score: int, token):
+    with engine.begin() as conn:
+        user = _get_user_by_token(conn, token)
+        result = conn.execute(
+            text(
+                "UPDATE room_member SET is_end=:is_end , judge_0=:judge_0 , judge_1=:judge_1, judge_2=:judge_2, judge_3=:judge_3, judge_4=:judge_4,score=:score WHERE room_id=:room_id AND user_id=:user_id"
+            ),
+            dict(
+                is_end=1,
+                judge_0=judge_count_list[0],
+                judge_1=judge_count_list[1],
+                judge_2=judge_count_list[2],
+                judge_3=judge_count_list[3],
+                judge_4=judge_count_list[4],
+                score=score,
+                room_id=room_id,
+                user_id=user,
+            ),
+        )

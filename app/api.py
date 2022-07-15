@@ -63,12 +63,24 @@ class RoomWaitResponse(BaseModel):
     status: WaitRoomStatus
     room_user_list: list[RoomUser]
 
+
 class RoomStartRequest(BaseModel):
     room_id: int
 
 
 class RoomStartResponse(BaseModel):
     pass
+
+
+class RoomEndRequest(BaseModel):
+    room_id: int
+    judge_count_list: list[int]
+    score: int
+
+
+class RoomEndResponse(BaseModel):
+    pass
+
 
 @app.post("/user/create", response_model=UserCreateResponse)
 def user_create(req: UserCreateRequest):
@@ -136,12 +148,20 @@ def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
 # 待機
 @app.post("/room/wait", response_model=RoomWaitResponse)
 def RoomJoin(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
-    users = get_join_users(req.room_id,token)
+    users = get_join_users(req.room_id, token)
     status = get_room_status(req.room_id)
-    return RoomWaitResponse(status = status.value,room_user_list = users)
+    return RoomWaitResponse(status=status.value, room_user_list=users)
+
 
 # スタート
 @app.post("/room/start", response_model=RoomStartResponse)
 def RoomJoin(req: RoomStartRequest, token: str = Depends(get_auth_token)):
-    start_room(req.room_id,token)
+    start_room(req.room_id, token)
+    return RoomStartResponse()
+
+
+# エンド
+@app.post("/room/end", response_model=RoomEndResponse)
+def RoomJoin(req: RoomEndRequest, token: str = Depends(get_auth_token)):
+    EndUser(req.room_id, req.judge_count_list, req.score, token)
     return RoomStartResponse()
