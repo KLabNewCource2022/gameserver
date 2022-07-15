@@ -1,11 +1,15 @@
+from email.mime import base
 from enum import Enum
+from lib2to3.pytree import Base
+from ntpath import join
+from telnetlib import STATUS
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from . import model
-from .model import SafeUser
+from .model import JoinRoomResult, LiveDifficulty, RoomInfo, RoomUser, SafeUser
 
 app = FastAPI()
 
@@ -65,3 +69,63 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
     # print(req)
     model.update_user(token, req.user_name, req.leader_card_id)
     return {}
+
+
+class RoomCreateRequest(BaseModel):
+    live_id: int
+    select_difficulty: int
+
+
+class RoomCreateResponse(BaseModel):
+    room_id: int
+
+
+@app.post("/room/create", response_model=RoomCreateResponse)
+def cretate_room(req: RoomCreateRequest, token: str = Depends(get_auth_token)):
+
+    room_id: int = model.insert_room(token, req.live_id, req.select_difficulty, 1)
+    return RoomCreateResponse(room_id=room_id)
+
+
+class RoomGetListRequest(BaseModel):
+    live_id: int
+
+
+class RoomGetListResponse(BaseModel):
+    room_info_list: list[RoomInfo]
+
+
+@app.post("/room/list", response_model=RoomGetListResponse)
+def get_room_list(req: RoomGetListRequest, token: str = Depends(get_auth_token)):
+    room_info_list: list[RoomInfo] = model.get_enterable_room_list(req.live_id)
+    return RoomGetListResponse(room_info_list=room_info_list)
+
+
+class RoomJoinRequest(BaseModel):
+    room_id: int
+    select_difficulty: int
+
+
+class RoomJoinResponse(BaseModel):
+    join_room_result: int
+
+
+@app.post("/room/join", response_model=RoomJoinResponse)
+def join_room(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
+    join_room_result: JoinRoomResult = model.join_selected_room(token, req.room_id, req.select_difficulty)
+    return RoomJoinResponse(join_room_result=int(join_room_result))
+
+
+class RoomWaitRequest(BaseModel):
+    room_id: int
+
+
+class RoomWaitResponse(BaseModel):
+    status: int
+    room_user_list: list[RoomUser]
+
+
+@app.post("/room/wait", response_model=RoomWaitResponse)
+def wait_room(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
+    res = model.wait_selected_room(token, req.room_id)
+    return RoomWaitResponse(res[0], res[1])
