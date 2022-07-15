@@ -179,7 +179,9 @@ def find_room(live_id: int) -> list[RoomInfo]:
 
         result: CursorResult = conn.execute(
             text(
-                "SELECT room_id, live_id, joined_user_count FROM room LEFT JOIN (SELECT room_id, COUNT(room_id) as joined_user_count FROM room_member GROUP BY room_id) as Cnt on room.id = Cnt.room_id"
+                """SELECT room_id, live_id, joined_user_count FROM room 
+                LEFT JOIN (SELECT room_id, COUNT(room_id) as joined_user_count FROM room_member GROUP BY room_id) as Cnt 
+                on room.id = Cnt.room_id"""
                 + where
             ),
             {"live_id": live_id},
@@ -293,7 +295,9 @@ def EndUser(room_id: int, judge_count_list: list[int], score: int, token):
         user = _get_user_by_token(conn, token)
         result = conn.execute(
             text(
-                "UPDATE room_member SET is_end=:is_end , judge_0=:judge_0 , judge_1=:judge_1, judge_2=:judge_2, judge_3=:judge_3, judge_4=:judge_4,score=:score WHERE room_id=:room_id AND user_id=:user_id"
+                """UPDATE room_member SET 
+                is_end=:is_end , judge_0=:judge_0 , judge_1=:judge_1, judge_2=:judge_2, judge_3=:judge_3, judge_4=:judge_4,score=:score 
+                WHERE room_id=:room_id AND user_id=:user_id"""
             ),
             dict(
                 is_end=1,
