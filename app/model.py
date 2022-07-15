@@ -244,7 +244,7 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
                 "FROM room LEFT OUTER JOIN ("
                 "SELECT room_id as ID, COUNT(room_id) - COUNT(score) as CC "
                 "FROM room_member WHERE room_id = :room_id GROUP BY room_id"
-                ") as C on room_id = ID WHERE room_id=:room_id"
+                ") as C on room_id = ID WHERE started=0 AND room_id=:room_id"
             ),
             {"room_id": room_id},
         )
