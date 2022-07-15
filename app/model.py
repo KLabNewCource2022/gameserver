@@ -312,34 +312,34 @@ def EndUser(room_id: int, judge_count_list: list[int], score: int, token):
             ),
         )
 
+
 def get_result(room_id):
     with engine.begin() as conn:
 
         result = conn.execute(
-            text(
-                "SELECT * FROM room_member WHERE room_id=:room_id"
-            ),
+            text("SELECT * FROM room_member WHERE room_id=:room_id"),
             dict(room_id=room_id),
         )
 
-        users :list[ResultUser] = []
+        users: list[ResultUser] = []
         try:
             for row in result.all():
-                if(row.is_end == 0):
+                if row.is_end == 0:
                     return []
 
-                users.append(ResultUser(
-                    user_id = row.user_id,
-                    score = row.score,
-                    judge_count_list=[
-                        row.judge_0,
-                        row.judge_1,
-                        row.judge_2,
-                        row.judge_3,
-                        row.judge_4,
-                    ]
-                ))
+                users.append(
+                    ResultUser(
+                        user_id=row.user_id,
+                        score=row.score,
+                        judge_count_list=[
+                            row.judge_0,
+                            row.judge_1,
+                            row.judge_2,
+                            row.judge_3,
+                            row.judge_4,
+                        ],
+                    )
+                )
             return users
         except:
             return []
-        

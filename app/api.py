@@ -155,7 +155,7 @@ def RoomJoin(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
 
 # 待機
 @app.post("/room/wait", response_model=RoomWaitResponse)
-def RoomJoin(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
+def RoomWait(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
     users = get_join_users(req.room_id, token)
     status = get_room_status(req.room_id)
     return RoomWaitResponse(status=status.value, room_user_list=users)
@@ -163,18 +163,21 @@ def RoomJoin(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
 
 # スタート
 @app.post("/room/start", response_model=RoomStartResponse)
-def RoomJoin(req: RoomStartRequest, token: str = Depends(get_auth_token)):
+def RoomStart(req: RoomStartRequest, token: str = Depends(get_auth_token)):
     start_room(req.room_id, token)
     return RoomStartResponse()
 
 
 # エンド
 @app.post("/room/end", response_model=RoomEndResponse)
-def RoomJoin(req: RoomEndRequest, token: str = Depends(get_auth_token)):
+def RoomEnd(req: RoomEndRequest, token: str = Depends(get_auth_token)):
     EndUser(req.room_id, req.judge_count_list, req.score, token)
     return RoomStartResponse()
 
+
 # リザルト
 @app.post("/room/result", response_model=RoomResultResponse)
-def RoomJoin(req: RoomResultRequest):
-    return get_result(req.room_id)
+def RoomResult(req: RoomResultRequest):
+    result_users = get_result(req.room_id)
+    print(f"{result_users}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    return result_users
