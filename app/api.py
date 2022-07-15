@@ -82,6 +82,14 @@ class RoomEndResponse(BaseModel):
     pass
 
 
+class RoomResultRequest(BaseModel):
+    room_id: int
+
+
+class RoomResultResponse(BaseModel):
+    result_user_list: list[ResultUser]
+
+
 @app.post("/user/create", response_model=UserCreateResponse)
 def user_create(req: UserCreateRequest):
     """新規ユーザー作成"""
@@ -165,3 +173,8 @@ def RoomJoin(req: RoomStartRequest, token: str = Depends(get_auth_token)):
 def RoomJoin(req: RoomEndRequest, token: str = Depends(get_auth_token)):
     EndUser(req.room_id, req.judge_count_list, req.score, token)
     return RoomStartResponse()
+
+# リザルト
+@app.post("/room/result", response_model=RoomResultResponse)
+def RoomJoin(req: RoomResultRequest):
+    return get_result(req.room_id)
