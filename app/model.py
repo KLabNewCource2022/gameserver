@@ -1,6 +1,7 @@
 from csv import unregister_dialect
 import json
 import struct
+from unittest import result
 import uuid
 from enum import Enum, IntEnum
 from typing import Optional
@@ -116,7 +117,7 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
 def create_room(token: str, live_id: int, select_difficulty: LiveDifficulty) -> int:
     with engine.begin() as conn:
         result = conn.execute(
-            text("INSERT INTO `room` (live_id, select_difficulty, status, joined_user_count, max_user_count, owner) VALUE(:live_id,:select_difficulty,:joined_user_count,:max_user_count,:status,:owner)"),
+            text("INSERT INTO `room` (live_id, select_difficulty, status, joined_user_count, max_user_count, owner) VALUE(:live_id,:select_difficulty,:status,:joined_user_count,:max_user_count,:owner)"),
                 {"live_id":live_id, "select_difficulty":select_difficulty.value, "status":WaitRoomStatus.Waiting.value, "joined_user_count":1, "max_user_count":MAXUSERCNT,"owner":token},
             )
         # print(result)
@@ -138,9 +139,9 @@ def _list_room(conn,live_id:int)->list[Optional[RoomInfo]]:
                 joined_user_count = i.joined_user_count,
                 max_user_count = i.max_user_count
                 ))
-            return roomlists
         except NoResultFound:
             return
+        return roomlists
         
 
 def list_room(live_id:int)->list[RoomInfo]:
@@ -156,9 +157,9 @@ def join_room(token,room_id:int ,select_difficuty:LiveDifficulty)->JoinRoomResul
         )
         try:
             row = result.one()
-            if(row.joined_user_count >= row.max_user_count):
+            if row.joined_user_count >= row.max_user_count:
                 return JoinRoomResult.RoomFull.value
-            if(row.joined_user_count == 0):
+            if row.joined_user_count == 0:
                 return JoinRoomResult.Disbanded.value
         except NoResultFound:
             return JoinRoomResult.OtherError.value
@@ -168,7 +169,6 @@ def join_room(token,room_id:int ,select_difficuty:LiveDifficulty)->JoinRoomResul
         ("insert into `room_member` (`room_id`,`user_id`,`select_difficulty`,`is_owner`) value(:room_id,:user_id,:select_difficulty,:is_owner)"),
         {"room_id":room_id,"user_id":user_by_token.id,"select_difficulty":select_difficuty.value,"is_owner":false},
         )
-
         return JoinRoomResult.OK.value
 
 def status_room(room_id:int)->WaitRoomStatus:
@@ -196,8 +196,8 @@ def user_list_room(token,room_id:int)->list[RoomUser]:
             )
             row2 = result2.one()
 
-            if(row.user_id == user_by_token.id):is_me = True
-            else:is_me = False
+            if row.user_id == user_by_token.id: is_me = True
+            else: is_me = False
 
             try:
                 room_user_list.append(
@@ -205,13 +205,32 @@ def user_list_room(token,room_id:int)->list[RoomUser]:
                         user_id = i.user_id,
                         name = row2.name,
                         leader_card_id = row2.leader_card_id,
-                        select_difficulty = row.select_difficulty,
+                        select_difficulty = i.select_difficulty,
                         is_me = is_me,
-                        is_host = row.is_owner
+                        is_host = i.is_owner
                     )
                 )
             except NoResultFound:
                 return
         return room_user_list
+
+def start_room(token: str, room_id:str):
+    with engine.begin() as conn:
+        user_by_token = _get_user_by_token(conn,token)
+        try:
+            result = conn.execute(text
+            ("select `owner` from `room` where `room_id`=:room_id"),
+            {"room_id":room_id},
+            )
+        except NoResultFound:
+            return
+        row = result.one()
+        if user_by_token.id == row.owner:
+            conn.execute(text
+            ("update `room` set `status`= :status where `room_id`=:room_id"),
+            {"status":WaitRoomStatus.LiveStart.value,"room_id":room_id},
+            )
+        else:
+            return
 
        

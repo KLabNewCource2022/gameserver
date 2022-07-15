@@ -118,3 +118,14 @@ def room_wait(req:RoomWaitRequest,token : str = Depends(get_auth_token)):
     status:WaitRoomStatus = model.status_room(req.room_id)
     room_user_list:list[RoomUser] = model.user_list_room(token,req.room_id)
     return RoomWaitResponse(status = status,room_user_list = room_user_list)
+
+class RoomStartRequest(BaseModel):
+    room_id:int
+
+class RoomStartResponse(BaseModel):
+    pass
+
+@app.post("/room/start",response_model= RoomStartResponse)
+def room_start(req:RoomStartRequest,token:str):
+    model.start_room(token,req.room_id)
+    return RoomStartResponse()
