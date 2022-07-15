@@ -250,15 +250,23 @@ def join_room(room_id: int, difficulty: LiveDifficulty, token: str) -> JoinRoomR
         )
         try:
             row = result.one()
+            if row.joined_user_count is None:
+                # Do not reached
+                return JoinRoomResult.OtherError
+            if row.max_user_count is None:
+                # Do not reached
+                return JoinRoomResult.OtherError
+
             if row.joined_user_count >= row.max_user_count:
                 # 参加者数 >= 参加上限 : 満員
                 return JoinRoomResult.RoomFull
-            elif row.joined_user_count == 0:
-                # 誰も参加していない : 解散済み
-                return JoinRoomResult.Disbanded
+            elif row.joined_user_count <= 0:
+                # Do not reached
+                return JoinRoomResult.OtherError
         except NoResultFound:
-            # クエリの結果が空 : その他エラー
-            return JoinRoomResult.OtherError
+            # クエリの結果が空 : 既に部屋が閉じている
+            # Note: ルーム側でライブが開始されている場合も「部屋が解散している」扱い
+            return JoinRoomResult.Disbanded
 
         _join_room(conn, room_id, difficulty, token)
         # 入場OK
