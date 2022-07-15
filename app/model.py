@@ -301,6 +301,23 @@ def room_start_live(room_id: int) -> None:
         )
 
 
+def _is_room_all_member_send_result(conn, room_id: int) -> bool:
+    result = conn.execute(
+        text(
+            "SELECT room_id, (COUNT(token) = COUNT(score)) as all_member_send "
+            "FROM `room_member` "
+            "WHERE room_id = :room_id "
+            "GROUP BY room_id"
+        ),
+        {"room_id": room_id},
+    )
+    try:
+        row = result.one()
+        return row.all_member_send == 1
+    except NoResultFound:
+        return False
+
+
 def set_room_user_result(
     room_id: int, judge_count_list: list[int], score: int, token: str
 ) -> None:
