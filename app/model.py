@@ -125,6 +125,18 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
         )
 
 
+def _joined_room_id(conn, token: str) -> Optional[int]:
+    result = conn.execute(
+        text("SELECT room_id FROM room_member WHERE token = :token"),
+        {"token": token},
+    )
+    row = result.one_or_none()
+    if row is None:
+        return None
+    else:
+        return row.room_id
+
+
 def _delete_user_from_room_member(conn, room_id: int, token: str) -> None:
     conn.execute(
         text("DELETE FROM `room_member` WHERE room_id = :room_id AND token = :token"),
