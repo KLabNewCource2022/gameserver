@@ -5,7 +5,15 @@ from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from . import model
-from .model import SafeUser
+from .model import (
+    JoinRoomResult,
+    LiveDifficulty,
+    ResultUser,
+    RoomInfo,
+    RoomUser,
+    SafeUser,
+    WaitRoomStatus,
+)
 
 app = FastAPI()
 
@@ -65,3 +73,153 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
     # print(req)
     model.update_user(token, req.user_name, req.leader_card_id)
     return {}
+
+
+# ------------------- ROOM CREATE --------------------------
+
+
+class CreateRoomRequest(BaseModel):
+    live_id: int
+    select_difficulty: LiveDifficulty
+
+
+class CreateRoomResponse(BaseModel):
+    room_id: int
+
+
+@app.post("/room/create", response_model=CreateRoomResponse)
+def room_create(req: CreateRoomRequest, token: str = Depends(get_auth_token)):
+    """create room"""
+    #print(req)
+    id = model.create_room(token, req.live_id, req.select_difficulty)
+    return CreateRoomResponse(room_id=id)
+
+
+# ------------------- ROOM LIST --------------------------
+
+
+class RoomListRequest(BaseModel):
+    live_id: int
+
+
+class RoomListResponse(BaseModel):
+    room_info_list: list[RoomInfo]
+
+
+@app.post("/room/list", response_model=RoomListResponse)
+def room_list(req: RoomListRequest):
+    """get active rooms"""
+    room_list = model.list_room(req.live_id)
+    return RoomListResponse(room_info_list=room_list)
+
+
+# ------------------- ROOM JOIN --------------------------
+
+
+class RoomJoinRequest(BaseModel):
+    room_id: int
+    select_difficulty: int
+
+
+class RoomJoinResponse(BaseModel):
+    join_room_result: JoinRoomResult
+
+
+@app.post("/room/join", response_model=RoomJoinResponse)
+def room_join(req: RoomJoinRequest, token: str = Depends(get_auth_token)):
+    """join room"""
+    result = model.join_room(token, req.room_id, req.select_difficulty)
+    return RoomJoinResponse(join_room_result=result)
+
+
+# ------------------- ROOM WAIT --------------------------
+
+
+class RoomWaitRequest(BaseModel):
+    room_id: int
+
+
+class RoomWaitResponse(BaseModel):
+    status: WaitRoomStatus
+    room_user_list: list[RoomUser]
+
+
+@app.post("/room/wait", response_model=RoomWaitResponse)
+def room_wait(req: RoomWaitRequest, token: str = Depends(get_auth_token)):
+    """wait room"""
+    waitStatus, user_list = model.wait_room(token, req.room_id)
+    return RoomWaitResponse(status=waitStatus, room_user_list=user_list)
+
+
+# ------------------- ROOM START --------------------------
+
+
+class RoomStartRequest(BaseModel):
+    room_id: int
+
+
+class RoomStartResponse(BaseModel):
+    pass
+
+
+@app.post("/room/start", response_model=RoomStartResponse)
+def room_start(req: RoomStartRequest, token: str = Depends(get_auth_token)):
+    """start room"""
+    model.start_room(token, req.room_id)
+    return RoomStartResponse()
+
+
+# ------------------- ROOM END --------------------------
+
+
+class RoomEndRequest(BaseModel):
+    room_id: int
+    judge_count_list: list[int]
+    score: int
+
+
+class RoomEndResponse(BaseModel):
+    pass
+
+
+@app.post("/room/end", response_model=RoomEndResponse)
+def room_end(req: RoomEndRequest, token: str = Depends(get_auth_token)):
+    """end room"""
+    model.end_room(token, req.room_id, req.judge_count_list, req.score)
+    return RoomEndResponse()
+
+
+# ------------------- ROOM RESULT --------------------------
+
+
+class RoomResultRequest(BaseModel):
+    room_id: int
+
+
+class RoomResultResponse(BaseModel):
+    result_user_list: list[ResultUser]
+
+
+@app.post("/room/result", response_model=RoomResultResponse)
+def room_result(req: RoomResultRequest):
+    """result room"""
+    result = model.result_room(req.room_id)
+    return RoomResultResponse(result_user_list=result)
+
+
+# ------------------- ROOM LEAVE --------------------------
+
+
+class RoomLeaveRequest(BaseModel):
+    room_id: int
+
+
+class RoomLeaveResponse(BaseModel):
+    pass
+
+
+@app.post("/room/leave", response_model=RoomLeaveResponse)
+def room_leave(req: RoomLeaveRequest, token: str = Depends(get_auth_token)):
+    """leave room"""
+    model.leave_room(token, req.room_id)
+    return RoomLeaveResponse()
