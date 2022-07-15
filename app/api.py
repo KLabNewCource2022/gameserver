@@ -80,7 +80,7 @@ def update(req: UserCreateRequest, token: str = Depends(get_auth_token)):
 
 class CreateRoomRequest(BaseModel):
     live_id: int
-    select_difficulty: int
+    select_difficulty: LiveDifficulty
 
 
 class CreateRoomResponse(BaseModel):

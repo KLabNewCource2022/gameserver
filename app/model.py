@@ -98,6 +98,9 @@ class RoomInfo(BaseModel):
     joined_user_count: int
     max_user_count: int
 
+    class Config:
+        orm_mode = True
+
 
 class RoomUser(BaseModel):
     user_id: int
@@ -107,14 +110,20 @@ class RoomUser(BaseModel):
     is_me: int
     is_host: int
 
+    class Config:
+        orm_mode = True
+
 
 class ResultUser(BaseModel):
     user_id: int
     judge_count_list: list[int]
     score: int
 
+    class Config:
+        orm_mode = True
 
-def create_room(token: str, live_id: int, select_difficulty: int) -> int:
+
+def create_room(token: str, live_id: int, select_difficulty: LiveDifficulty) -> int:
     with engine.begin() as conn:
         # create new room
         result = conn.execute(
@@ -141,7 +150,7 @@ def create_room(token: str, live_id: int, select_difficulty: int) -> int:
                 "room_id": roomId,
                 "user_id": user.id,
                 "is_host": 1,
-                "select_difficulty": select_difficulty,
+                "select_difficulty": select_difficulty.value
             },
         )
 
@@ -153,9 +162,9 @@ def list_room(live_id: int) -> List[RoomInfo]:
     with engine.begin() as conn:
         result: Any
         if live_id == 0:
-            result = conn.execute(text("select * from room"))
+            result = conn.execute(text("select * from room where started = 0"))
         else:
-            result = conn.execute(text("select * from room where live_id = :live_id"), {"live_id": live_id})
+            result = conn.execute(text("select * from room where live_id = :live_id and started = 0"), {"live_id": live_id})
 
     # populate array with every active room and return it
     roomInfo: List[RoomInfo] = []
@@ -234,11 +243,11 @@ def wait_room(token: str, room_id: int):
             {"room_id": room_id},
         )
 
-        # init user list
+        # init user list    
         user_list: list[RoomUser] = []
         my_id = _get_user_by_token(conn, token).id
         try:
-            for row in user_list:
+            for row in result_user:
                 me = 1 if my_id == row.id else 0
                 u = RoomUser(
                     user_id=row.id,
@@ -284,21 +293,34 @@ def end_room(token: str, room_id: int, judge_count_list: list[int], score: int):
 
 def result_room(room_id: int) -> list[ResultUser]:
     with engine.begin() as conn:
+        # check if every player in room is done playing
+        result = conn.execute(
+            text(
+                "select score from room_member where room_id = :room_id"
+            ),
+            {"room_id": room_id},
+        )
+
+        try:
+            for row in result:
+                if row.score is None:
+                    return []
+        except NoResultFound:
+            pass
+
         # get scores from users
         result = conn.execute(
             text(
                 "select user_id, judge_count_list, score from room_member where room_id = :room_id"
             ),
-            {"room_id": room_id},
+            {"room_id": room_id}
         )
 
         user_list: list[ResultUser] = []
         try:
             for row in result:
                 strlist = row.judge_count_list.split(",")
-                print(strlist)
                 judges = [int(x) for x in strlist]
-                print(judges)
                 u = ResultUser(
                     user_id=row.user_id, judge_count_list=judges, score=row.score
                 )
