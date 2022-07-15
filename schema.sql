@@ -17,16 +17,15 @@ CREATE TABLE `room` (
   `live_id` bigint not null,
   `select_difficulty`bigint not null,
   `status` bigint not null,
+  `joined_user_count` bigint not null,
+  `max_user_count` bigint not null,
   `owner` varchar(255) DEFAULT NULL,
   UNIQUE KEY `room_id` (`room_id`)
 );
 
 CREATE TABLE `room_member` (
-  `room_id` bigint not null AUTO_INCREMENT primary key,
-  `user1` varchar(255) DEFAULT NULL,
-  `user2` varchar(255) DEFAULT NULL,
-  `user3` varchar(255) DEFAULT NULL,
-  `user4` varchar(255) DEFAULT NULL,
-  `owner` varchar(255) DEFAULT NULL,
+  `room_id` bigint not null primary key,
+  `user_id` varchar(255) default null,
+  `select_difficulty` bigint not null,
   UNIQUE KEY `room_id` (`room_id`)
 );

@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 
+from app.api import RoomWaitResponse
+
 from .db import engine
 
 MAXUSERCNT = 4
@@ -114,8 +116,8 @@ def update_user(token: str, name: str, leader_card_id: int) -> None:
 def create_room(token: str, live_id: int, select_difficulty: LiveDifficulty) -> int:
     with engine.begin() as conn:
         result = conn.execute(
-            text("INSERT INTO `room` (live_id, select_difficulty, status, owner) VALUE(:live_id,:select_difficulty,:status,:owner)"),
-                {"live_id":live_id, "select_difficulty":select_difficulty.value, "status":WaitRoomStatus.Waiting.value, "owner":token},
+            text("INSERT INTO `room` (live_id, select_difficulty, status, joined_user_count, max_user_count, owner) VALUE(:live_id,:select_difficulty,:joined_user_count,:max_user_count,:status,:owner)"),
+                {"live_id":live_id, "select_difficulty":select_difficulty.value, "status":WaitRoomStatus.Waiting.value, "joined_user_count":1, "max_user_count":4,"owner":token},
             )
         # print(result)
     return result.lastrowid
@@ -127,14 +129,15 @@ def _list_room(conn,live_id:int)->list[Optional[RoomInfo]]:
         )
         row = result.all()
         roomlists :list[RoomInfo]= []
-        ri = RoomInfo()
         try:
             for i in row:
-                ri.room_id = i.room_id
-                ri.live_id = i.live_id
-                ri.joined_user_count = 2#test
-                ri.max_user_count = MAXUSERCNT
-                roomlists.append(ri)
+                roomlists.append(
+                RoomInfo(
+                room_id = i.room_id,
+                live_id = i.live_id,
+                joined_user_count = i.joined_user_count,
+                max_user_count = i.max_user_count
+                ))
             return roomlists
         except NoResultFound:
             return
@@ -145,4 +148,45 @@ def list_room(live_id:int)->list[RoomInfo]:
         roomlists = _list_room(conn,live_id)
         return roomlists
         
+def join_room(token,room_id:int ,select_difficuty:LiveDifficulty)->JoinRoomResult:
+    with engine.begin() as conn:
+        result = conn.execute(text
+        ("select `joined_user_count`,`max_user_count` from `room` where `room_id` =: room_id"),
+        {"room_id":room_id},
+        )
+        try:
+            row = result.one()
+            if(row.joined_user_count >= row.max_user_count):
+                return JoinRoomResult.RoomFull.value
+            if(row.joined_user_count == 0):
+                return JoinRoomResult.Disbanded.value
+        except NoResultFound:
+            return JoinRoomResult.OtherError.value
+        
+        user_by_token = _get_user_by_token(conn,token)
+        result2 = conn.execute(text
+        ("insert into `room_member` (`room_id`,`user_id`,`select_difficulty`) value(:room_id,:user_id,:select_difficulty)"),
+        {"room_id":room_id,"user_id":user_by_token.id,"select_difficulty":select_difficuty.value},
+        )
+
+        return JoinRoomResult.OK.value
+
+def status_room(room_id:int)->WaitRoomStatus:
+    with engine.engine() as conn:
+        result = conn.execute(text
+        ("select `status` from `room` where `room_id` =:room_id"),
+        {"room_id":room_id}
+        )
+        row = result.one()
+        return row.status
+
+def user_list_room(token,room_id:int)->list[RoomUser]:
+    with engine.begin() as conn:
+        user_by_token = _get_user_by_token(conn,token)
+        result = conn.execute(text
+        ("select `user_id`, `select_difficulty` from `room_member` where `room_id` =: room_id"),
+        {"room_id":room_id}
+        )
+        row = result
+
 

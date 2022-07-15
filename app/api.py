@@ -1,11 +1,12 @@
 from enum import Enum
+from lib2to3.pytree import Base
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from . import model
-from .model import LiveDifficulty, RoomInfo, SafeUser
+from .model import JoinRoomResult, LiveDifficulty, RoomInfo, RoomUser, SafeUser, WaitRoomStatus
 
 app = FastAPI()
 
@@ -76,19 +77,44 @@ class RoomCreateRequest(BaseModel):
 class RoomCreateResponse(BaseModel):
     room_id: int
 
-class RoomListRequest(BaseModel):
-    live_id: int
-
-class RoomListResponse(BaseModel):
-    room_info: list[RoomInfo]
-
 @app.post("/room/create", response_model = RoomCreateResponse)
 def room_create(req: RoomCreateRequest,token: str = Depends(get_auth_token)):
     """ルーム作成"""
     room_id = model.create_room(token,req.live_id, req.select_difficulty)
     return RoomCreateResponse(room_id=room_id)
 
+class RoomListRequest(BaseModel):
+    live_id: int
+
+class RoomListResponse(BaseModel):
+    room_info: list[RoomInfo]
+
 @app.post("/room/list", response_model = RoomListResponse)
 def room_list(req: RoomListRequest):
-    room_info = model.list_room(req.live_id)
+    room_info:list[RoomInfo] = model.list_room(req.live_id)
     return RoomListResponse(room_info = room_info)
+
+class RoomJoinRequest(BaseModel):
+    room_id:int
+    select_difficulty:LiveDifficulty
+
+class RoomJoinResponse(BaseModel):
+    join_room_result:JoinRoomResult
+
+@app.post("/room/join", response_model = RoomJoinResponse)
+def room_join(req:RoomJoinRequest,token: str = Depends(get_auth_token)):
+    room_join:JoinRoomResult = model.join_room(token,req.room_id,req.select_difficulty)
+    return RoomJoinResponse(join_room_join = room_join)
+
+class RoomWaitRequest(BaseModel):
+    room_id:int
+
+class RoomWaitResponse(BaseModel):
+    status:WaitRoomStatus
+    room_user_list:list[RoomUser]
+
+@app.post("/room/wait", response_model = RoomWaitResponse)
+def room_wait(req:RoomWaitRequest,token : str = Depends(get_auth_token)):
+    status:WaitRoomStatus = model.status_room(req.room_id)
+    room_user_list:list[RoomUser] = model.user_list_room(token,req.room_id)
+    return RoomWaitResponse(status = status,room_user_list=room_user_list)
